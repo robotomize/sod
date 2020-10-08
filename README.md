@@ -40,15 +40,10 @@ Running SOD from the repository
 
 ```bash
 go run cmd/sod
-```
 
-or
-
-```bash
 go build cmd/sod
 ```
-
-or 
+or build docker image
 
 ```bash
 docker build .
