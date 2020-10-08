@@ -17,9 +17,9 @@ import (
 const maxBodyBytes = 64 * 1024 * 1024
 
 type request struct {
-	EntityID string `json:"entityId"`
+	EntityID string `json:"entity"`
 	Data     []struct {
-		Vec       []float64   `json:"vec"`
+		Vec       []float64   `json:"vector"`
 		Extra     interface{} `json:"extra"`
 		CreatedAt time.Time   `json:"createdAt"`
 	} `json:"data"`
@@ -70,16 +70,18 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		logger.Infof("Collected value for bucket %s", req.EntityID)
 	}()
-
-	w.WriteHeader(http.StatusOK)
 	go func() {
 		sort.Slice(req.Data, func(i, j int) bool {
 			return req.Data[i].CreatedAt.Before(req.Data[j].CreatedAt)
 		})
 		for _, dat := range req.Data {
-			if err := h.outlier.Collect(model.NewMetric(req.EntityID, vector.New(dat.Vec), dat.CreatedAt, dat.Extra)); err != nil {
+			if err := h.outlier.Collect(
+				model.NewMetric(req.EntityID, vector.New(dat.Vec), dat.CreatedAt, dat.Extra),
+			); err != nil {
 				logger.Errorf("error sending to collect service: %v", err)
 			}
 		}
 	}()
+	w.WriteHeader(http.StatusOK)
+	_, _ = fmt.Fprintf(w, `{"status": "ok"}`)
 }

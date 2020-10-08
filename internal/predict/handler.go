@@ -30,20 +30,20 @@ func (d DataPoint) Time() time.Time {
 	return d.CreatedAt
 }
 
-type response struct {
-	EntityID string
+type request struct {
+	EntityID string `json:"entity"`
 	Data     []struct {
-		Outlier   bool        `json:"outlier"`
-		Vec       []float64   `json:"vec"`
+		Vec       []float64   `json:"vector"`
 		Extra     interface{} `json:"extra"`
 		CreatedAt time.Time   `json:"createdAt"`
 	} `json:"data"`
 }
 
-type request struct {
-	EntityID string `json:"entityId"`
+type response struct {
+	EntityID string `json:"entity"`
 	Data     []struct {
-		Vec       []float64   `json:"vec"`
+		Outlier   bool        `json:"outlier"`
+		Vec       []float64   `json:"vector"`
 		Extra     interface{} `json:"extra"`
 		CreatedAt time.Time   `json:"createdAt"`
 	} `json:"data"`
@@ -96,7 +96,7 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	var respData []struct {
 		Outlier   bool        `json:"outlier"`
-		Vec       []float64   `json:"vec"`
+		Vec       []float64   `json:"vector"`
 		Extra     interface{} `json:"extra"`
 		CreatedAt time.Time   `json:"createdAt"`
 	}
@@ -116,7 +116,7 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			mtx.Lock()
 			respData = append(respData, struct {
 				Outlier   bool        `json:"outlier"`
-				Vec       []float64   `json:"vec"`
+				Vec       []float64   `json:"vector"`
 				Extra     interface{} `json:"extra"`
 				CreatedAt time.Time   `json:"createdAt"`
 			}{Outlier: result.Outlier, Vec: point.Vector().Points(), Extra: dat.Extra, CreatedAt: dat.CreatedAt})
@@ -129,12 +129,6 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	resp := response{
 		EntityID: req.EntityID,
-		Data: []struct {
-			Outlier   bool        `json:"outlier"`
-			Vec       []float64   `json:"vec"`
-			Extra     interface{} `json:"extra"`
-			CreatedAt time.Time   `json:"createdAt"`
-		}{},
 	}
 	resp.Data = respData
 	bytes, err := json.Marshal(resp)
