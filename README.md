@@ -2,6 +2,8 @@
 
 **Note**: The `master` branch may be in an *unstable or even broken state* during development. Please use [releases][github-release] instead of the `master` branch in order to get stable binaries.
 
+**Note**: The current version is not intended for use in production
+
 ![SOD Logo](docs/images/sod-horizontal-small.svg)
 
 SOD  - simple outlier detection. A simple solution for detecting anomalies in a vector data stream with a focus on being:
