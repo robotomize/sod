@@ -38,9 +38,10 @@ or
 
 ```bash
 go build cmd/sod
-``
+```
 
 or 
+
 ```bash
 docker build .
 ```
@@ -53,31 +54,27 @@ By default, the application runs on port 8787. SOD operates in two modes: collec
 ### Predict request
 
  Your request will be mapped to the following structure
-```go
-type request struct {
-	EntityID string `json:"entityId"`
-	Data     []struct {
-		Vec       []float64   `json:"vec"`
-		Extra     interface{} `json:"extra"`
-		CreatedAt time.Time   `json:"createdAt"`
-	} `json:"data"`
+```json
+{
+  "entityId": "user-lives",
+  "data": [
+    {"vec": [1.1, 1.7], "extra": "player id 1 lives", "createdAt": "timestamp"}
+  ] 
 }
-
 ```
+
 ```bash
 curl -X POST -d '{entityId: "user-lives", "data": [{"vec": [1.1, 1.7], "extra": "player id 1 lives", "createdAt": "timestamp"}]}' http://localhost:8787/predict
 ```
 
 ### Collect request
 
-```go
-type request struct {
-	EntityID string `json:"entityId"`
-	Data     []struct {
-		Vec       []float64   `json:"vec"`
-		Extra     interface{} `json:"extra"`
-		CreatedAt time.Time   `json:"createdAt"`
-	} `json:"data"`
+```json
+{
+  "entityId": "user-lives",
+  "data": [
+    {"vec": [1.1, 1.7], "extra": "player id 1 lives", "createdAt": "timestamp"}
+  ] 
 }
 ```
 
