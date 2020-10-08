@@ -40,6 +40,11 @@ or
 go build cmd/sod
 ``
 
+or 
+```bash
+docker build .
+```
+
 ### License
 
 SOD is under the Apache 2.0 license. See the [LICENSE](LICENSE) file for details.
