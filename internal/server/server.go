@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"google.golang.org/grpc"
 	"net"
 	"net/http"
 	"rango/internal/logging"
@@ -67,30 +66,4 @@ func (s *Server) ServeHTTPHandler(ctx context.Context, handler http.Handler) err
 	return s.ServeHTTP(ctx, &http.Server{
 		Handler: handler,
 	})
-}
-
-func (s *Server) ServeGRPC(ctx context.Context, srv *grpc.Server) error {
-	logger := logging.FromContext(ctx)
-	errCh := make(chan error, 1)
-	listener, err := net.Listen("tcp", s.addr)
-	if err != nil {
-		return fmt.Errorf("server: создание GRPC завершилось с ошибкой на %s: %w", s.addr, err)
-	}
-	logger.Debugf("server: сервер GRPC запущен на порту %s", s.addr)
-	go func() {
-		<-ctx.Done()
-		logger.Debugf("server: завершение по контексту GRPC")
-		srv.GracefulStop()
-	}()
-
-	if err := srv.Serve(listener); err != nil && !errors.Is(err, grpc.ErrServerStopped) {
-		return fmt.Errorf("server: ошибка запуска GRPC: %w", err)
-	}
-
-	logger.Debugf("server: сервис GRPC остановлен")
-
-	select {
-	case err := <-errCh:
-		return fmt.Errorf("server: ошибка graceful shutdown: %w", err)
-	}
 }
