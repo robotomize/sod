@@ -17,6 +17,8 @@ SOD is written in Go. It consists of several components. The data storage system
 
 ## LOF white paper
 
+![lof image](docs/images/lof.png)
+
 [LOF agorithm white paper](https://www.dbs.ifi.lmu.de/Publikationen/Papers/LOF.pdf)
 
 ## Getting started
