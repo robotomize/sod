@@ -229,12 +229,12 @@ func (b *kd) rebuildSize() {
 func (b *kd) schedule(ctx context.Context) {
 	outdatedTicker := time.NewTicker(rebuildOutdatedTime)
 	sizeTicker := time.NewTicker(rebuildSizeTime)
-	balanceTreeTicker := time.NewTicker(balanceKDTreeTime)
-	greenBlueBuildTicker := time.NewTicker(1 * time.Second)
+	kdBalanceTicker := time.NewTicker(balanceKDTreeTime)
+	gbBuildTicker := time.NewTicker(5 * time.Second)
 	defer outdatedTicker.Stop()
 	defer sizeTicker.Stop()
-	defer balanceTreeTicker.Stop()
-	defer greenBlueBuildTicker.Stop()
+	defer kdBalanceTicker.Stop()
+	defer gbBuildTicker.Stop()
 	for {
 		select {
 		case <-outdatedTicker.C:
@@ -245,9 +245,9 @@ func (b *kd) schedule(ctx context.Context) {
 			if b.opts.maxItemsStored > 0 && b.timesTree.Len() > b.opts.maxItemsStored {
 				b.rebuildSize()
 			}
-		case <-balanceTreeTicker.C:
+		case <-kdBalanceTicker.C:
 			b.balanceKDTree()
-		case <-greenBlueBuildTicker.C:
+		case <-gbBuildTicker.C:
 			b.buildGBTree()
 		case <-ctx.Done():
 			return
