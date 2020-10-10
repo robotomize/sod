@@ -12,8 +12,6 @@ func newClient(rt http.RoundTripper) *http.Client {
 	return &http.Client{Transport: rt}
 }
 
-// NewClientFromConfig returns a new HTTP client configured for the
-// given config.HTTPClientConfig. The name is used as go-conntrack metric label.
 func NewClientFromConfig(cfg HTTPClientConfig, disableKeepAlives bool) (*http.Client, error) {
 	rt, err := NewRoundTripperFromConfig(cfg, disableKeepAlives)
 	if err != nil {
@@ -23,17 +21,13 @@ func NewClientFromConfig(cfg HTTPClientConfig, disableKeepAlives bool) (*http.Cl
 }
 
 // NewRoundTripperFromConfig returns a new HTTP RoundTripper configured for the
-// given config.HTTPClientConfig. The name is used as go-conntrack metric label.
+// given config.HTTPClientConfig
 func NewRoundTripperFromConfig(cfg HTTPClientConfig, disableKeepAlives bool) (http.RoundTripper, error) {
-	// The only timeout we care about is the configured scrape timeout.
-	// It is applied on request. So we leave out any timings here.
 	var rt http.RoundTripper = &http.Transport{
-		MaxIdleConns:        20000,
-		MaxIdleConnsPerHost: 1000, // see https://github.com/golang/go/issues/13801
-		DisableKeepAlives:   disableKeepAlives,
-		DisableCompression:  true,
-		// 5 minutes is typically above the maximum sane scrape interval. So we can
-		// use keepalive for all configurations.
+		MaxIdleConns:          20000,
+		MaxIdleConnsPerHost:   1000,
+		DisableKeepAlives:     disableKeepAlives,
+		DisableCompression:    true,
 		IdleConnTimeout:       5 * time.Minute,
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
@@ -49,7 +43,7 @@ func NewRoundTripperFromConfig(cfg HTTPClientConfig, disableKeepAlives bool) (ht
 	if cfg.BasicAuth != nil {
 		rt = NewBasicAuthRoundTripper(cfg.BasicAuth.Username, cfg.BasicAuth.Password, rt)
 	}
-	// Return a new configured RoundTripper.
+
 	return rt, nil
 }
 

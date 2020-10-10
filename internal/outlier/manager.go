@@ -381,6 +381,14 @@ func (d *manager) receive(ctx context.Context, q *iqueue.Queue) {
 	}
 }
 
+const workerMul = 32
+
+func (d *manager) worker(ctx context.Context, queue *iqueue.Queue, num int) {
+	for i := 0; i < num; i++ {
+		go d.receive(ctx, queue)
+	}
+}
+
 func (d *manager) collector(ctx context.Context) {
 	defer close(d.collectCh)
 	for {
@@ -390,9 +398,7 @@ func (d *manager) collector(ctx context.Context) {
 			if !ok {
 				queue := iqueue.New()
 				go queue.Loop()
-				for i := 0; i < runtime.NumCPU()*32; i++ {
-					go d.receive(ctx, queue)
-				}
+				d.worker(ctx, queue, runtime.NumCPU()*workerMul)
 				d.queue[in.EntityID] = queue
 				q = queue
 			}

@@ -6,12 +6,12 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"rango/internal/collect"
+	"rango/internal/config"
 	"rango/internal/logging"
 	"rango/internal/predict"
 	"rango/internal/server"
 	"rango/internal/setup"
 	"rango/internal/shutdown"
-	"rango/internal/sod"
 )
 
 func main() {
