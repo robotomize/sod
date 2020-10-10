@@ -53,98 +53,18 @@ func (t *Tree) Invert() {
 	}
 }
 
-func (t *Tree) Walk() []Item {
-	var list []Item
-	t.walk(&list, t.root)
-	return list
-}
-
-func (t *Tree) walkOrderAsc(list *[]Item, node *node) {
-	if node.left != nil {
-		t.walkOrderAsc(list, node.left)
+func (t *Tree) Points() []Item {
+	if t.root == nil {
+		return []Item{}
 	}
-
-	*list = append(*list, node.item)
-
-	if node.right != nil {
-		t.walkOrderAsc(list, node.right)
-	}
-}
-
-func (t *Tree) walkOrderDesc(list *[]Item, node *node) {
-	if node.right != nil {
-		t.walkOrderDesc(list, node.right)
-	}
-
-	*list = append(*list, node.item)
-
-	if node.left != nil {
-		t.walkOrderDesc(list, node.left)
-	}
-}
-
-func (t *Tree) walk(list *[]Item, node *node) {
-	if node != nil {
-		if t.order == orderAsc {
-			t.walkOrderAsc(list, node)
-		} else {
-			t.walkOrderDesc(list, node)
-		}
-	}
-}
-
-func (t *Tree) filterAsc(list *[]Item, current *node, fn FilterFn) {
-	if current.left != nil {
-		t.filterAsc(list, current.left, fn)
-	}
-
-	if fn == nil {
-		*list = append(*list, current.item)
-		return
-	}
-
-	if fn(current.item) {
-		*list = append(*list, current.item)
-	}
-
-	if current.right != nil {
-		t.filterAsc(list, current.right, fn)
-	}
-}
-
-func (t *Tree) filterDesc(list *[]Item, current *node, fn FilterFn) {
-	if current.right != nil {
-		t.filterDesc(list, current.right, fn)
-	}
-
-	if fn == nil {
-		*list = append(*list, current.item)
-		return
-	}
-
-	if fn(current.item) {
-		*list = append(*list, current.item)
-	}
-
-	if current.left != nil {
-		t.filterDesc(list, current.left, fn)
-	}
-}
-
-func (t *Tree) filter(list *[]Item, node *node, fn FilterFn) {
-	if node != nil {
-		if t.order == orderAsc {
-			t.filterAsc(list, node, fn)
-		} else {
-			t.filterDesc(list, node, fn)
-		}
-	}
+	return t.root.points(t.order)
 }
 
 func (t *Tree) Filter(fn FilterFn) []Item {
-	var list []Item
-	t.filter(&list, t.root, fn)
-	return list
+	if t.root == nil {
+		return []Item{}
+	}
+	return t.root.filter(t.root, fn)
 }
 
 func (t *Tree) Add(item Item) {

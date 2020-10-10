@@ -83,6 +83,7 @@ func run(ctx context.Context, cancel func()) error {
 		}
 		mux.Handle("/collect", collectHandler)
 	}
+
 	go func() {
 		if err := srv.ServeHTTPHandler(ctx, mux); err != nil {
 			cancel()

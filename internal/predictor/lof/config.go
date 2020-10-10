@@ -3,8 +3,8 @@ package lof
 import (
 	"fmt"
 	"rango/internal/predictor"
-	"rango/internal/predictor/knn/bkd"
 	"rango/internal/predictor/knn/brute"
+	"rango/internal/predictor/knn/gbkd"
 	"rango/pkg/math/vector"
 	"time"
 )
@@ -35,19 +35,19 @@ type Config struct {
 	AlgType        AlgType          `envconfig:"LOF_ALG_TYPE" default:"KD_TREE"`
 }
 
-func NNFor(a AlgType, maxItems int, maxTime time.Duration, distFn predictor.PointsDistanceFn) (predictor.KNNAlg, error) {
+func NNFor(a AlgType, maxItems int, maxTime time.Duration, distFn func(vec, vec1 []float64) (float64, error)) (predictor.KNNAlg, error) {
 	switch a {
 	case AlgTypeBrute:
 		return brute.NewBruteAlg(distFn, brute.WithMaxItems(maxItems), brute.WithStorageTime(maxTime)), nil
 	case AlgTypeKDTree:
 		//return kd.NewKDAlg(distFn, kd.WithStorageTime(maxTime), kd.WithMaxItems(maxItems)), nil
-		return bkd.NewBKDAlg(distFn, bkd.WithStorageTime(maxTime), bkd.WithMaxItems(maxItems)), nil
+		return gbkd.NewBKDAlg(distFn, gbkd.WithStorageTime(maxTime), gbkd.WithMaxItems(maxItems)), nil
 	default:
 		return nil, fmt.Errorf("unable to create alg with alg type %s", a)
 	}
 }
 
-func DistanceFuncFor(d DistanceFuncType) (predictor.PointsDistanceFn, error) {
+func DistanceFuncFor(d DistanceFuncType) (func(vec, vec1 []float64) (float64, error), error) {
 	switch d {
 	case DistanceFuncTypeChebyshev:
 		return vector.ChebyshevDistance, nil

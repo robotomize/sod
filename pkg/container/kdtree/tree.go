@@ -7,16 +7,13 @@ import (
 	"sort"
 )
 
-type PointsDistanceFn func(vec, vec1 []float64) (float64, error)
-
 type Item interface {
 	Point(idx int) float64
 	Dimensions() int
 	Points() []float64
 }
 
-// New returns a balanced k-d tree.
-func New(distFn PointsDistanceFn) *Tree {
+func New(distFn func(vec, vec1 []float64) (float64, error)) *Tree {
 	return &Tree{
 		root:   nil,
 		len:    0,
@@ -27,7 +24,7 @@ func New(distFn PointsDistanceFn) *Tree {
 type Tree struct {
 	root   *node
 	len    int
-	distFn PointsDistanceFn
+	distFn func(vec, vec1 []float64) (float64, error)
 }
 
 func (t *Tree) RangeSearch(r []Range) []Item {
@@ -52,21 +49,6 @@ func (t *Tree) Insert(p Item) {
 	t.len += 1
 }
 
-func (t *Tree) Remove(p Item) Item {
-	if t.root == nil {
-		return p
-	}
-	n, sub := t.root.Remove(p, 0)
-	if n == t.root {
-		t.root = sub
-	}
-	if n == nil {
-		return p
-	}
-	t.len -= 1
-	return n.Key
-}
-
 func (t *Tree) Balance() {
 	t.root = buildTreeRecursive(t.Points(), 0)
 }
@@ -83,16 +65,16 @@ func (t *Tree) KNN(p Item, k int) ([]Item, error) {
 		return []Item{}, fmt.Errorf("root is nil or K is 0")
 	}
 
-	queue := pqueue.New(pqueue.WithOrderAsc(), pqueue.WithCap(uint(k)))
+	queue := pqueue.New(pqueue.WithCap(uint(k)))
+
 	if err := t.knn(p, k, t.root, 0, queue); err != nil {
 		return []Item{}, err
 	}
 
-	points := []Item{}
+	points := make([]Item, queue.Len())
 	for i := 0; i < k && 0 < queue.Len(); i++ {
 		o := queue.Head().(*node).Key
-		points = append(points, o)
-		//points = append(points, o)
+		points[i] = o
 	}
 
 	return points, nil

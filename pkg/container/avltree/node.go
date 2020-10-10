@@ -19,6 +19,61 @@ type node struct {
 	height int
 }
 
+func (n *node) filter(current *node, fn FilterFn) []Item {
+	var points []Item
+
+	if n.left != nil {
+		points = n.left.filter(current.left, fn)
+	}
+	if fn == nil || fn(current.item) {
+		points = append(points, n.item)
+	}
+
+	if n.right != nil {
+		points = append(points, n.right.filter(current.right, fn)...)
+	}
+
+	return points
+}
+
+func (n *node) pointsAsc() []Item {
+	var points []Item
+
+	if n.left != nil {
+		points = n.left.pointsAsc()
+	}
+
+	points = append(points, n.item)
+
+	if n.right != nil {
+		points = append(points, n.right.pointsAsc()...)
+	}
+	return points
+}
+
+func (n *node) pointsDesc() []Item {
+	var points []Item
+
+	if n.right != nil {
+		points = append(points, n.right.pointsDesc()...)
+	}
+
+	points = append(points, n.item)
+
+	if n.left != nil {
+		points = n.left.pointsDesc()
+	}
+
+	return points
+}
+
+func (n *node) points(order order) []Item {
+	if order == orderAsc {
+		return n.pointsAsc()
+	}
+	return n.pointsDesc()
+}
+
 func (n *node) invert() *node {
 	var tmp *node
 	if n.left != nil {

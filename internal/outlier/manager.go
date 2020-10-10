@@ -375,7 +375,6 @@ func (d *manager) receive(ctx context.Context, q *iqueue.Queue) {
 			if err := d.process(ctx, recv.(model.Metric)); err != nil {
 				logger.Errorf("unable processed data: %v", err)
 			}
-			fmt.Println("queue: ", q.Len())
 		case <-ctx.Done():
 			return
 		}
@@ -391,10 +390,9 @@ func (d *manager) collector(ctx context.Context) {
 			if !ok {
 				queue := iqueue.New()
 				go queue.Loop()
-				for i := 0; i < runtime.NumCPU(); i++ {
+				for i := 0; i < runtime.NumCPU()*32; i++ {
 					go d.receive(ctx, queue)
 				}
-
 				d.queue[in.EntityID] = queue
 				q = queue
 			}

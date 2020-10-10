@@ -40,7 +40,7 @@ func WithKNum(k int) Option {
 	}
 }
 
-func WithDistance(f predictor.PointsDistanceFn) Option {
+func WithDistance(f func(vec, vec1 []float64) (float64, error)) Option {
 	return func(l *lof) {
 		l.distFunc = f
 	}
@@ -87,7 +87,7 @@ type lof struct {
 	opts     Options
 	kNum     int
 	alg      predictor.KNNAlg
-	distFunc predictor.PointsDistanceFn
+	distFunc func(vec, vec1 []float64) (float64, error)
 }
 
 func (l *lof) Len() int {
@@ -141,7 +141,7 @@ func (l *lof) Lof(vec predictor.Vector) (float64, error) {
 	return avgLrd / lrd, nil
 }
 
-func (l *lof) DistanceFunc() predictor.PointsDistanceFn {
+func (l *lof) DistanceFunc() func(vec, vec1 []float64) (float64, error) {
 	return l.distFunc
 }
 
@@ -166,7 +166,7 @@ func (l *lof) predict(data predictor.Vector) (*predictor.Conclusion, error) {
 
 func (l *lof) validateKNum() error {
 	if l.kNum < MinKNum {
-		return fmt.Errorf("the selected value of kNum is less than the minimum kNum established by the implementation of the algorithms")
+		return fmt.Errorf("the k selected in the config is too small")
 	}
 	return nil
 }

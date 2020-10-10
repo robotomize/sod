@@ -35,14 +35,14 @@ const (
 	rebuildSizeTime     = 5 * time.Second
 )
 
-func NewBruteAlg(distFn predictor.PointsDistanceFn, opts ...Option) *brute {
+func NewBruteAlg(distFn func(vec, vec1 []float64) (float64, error), opts ...Option) *brute {
 	b := &brute{distFunc: distFn, data: avltree.New()}
 	for _, opt := range opts {
 		opt(b)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	b.cancel = cancel
-	go b.startOperation(ctx)
+	go b.schedule(ctx)
 	return b
 }
 
@@ -51,7 +51,7 @@ type brute struct {
 	mtx       sync.RWMutex
 	data      *avltree.Tree
 	createdAt time.Time
-	distFunc  predictor.PointsDistanceFn
+	distFunc  func(vec, vec1 []float64) (float64, error)
 	cancel    func()
 }
 
@@ -69,15 +69,6 @@ func (b *brute) Len() int {
 	b.mtx.RLock()
 	defer b.mtx.RUnlock()
 	return b.data.Len()
-}
-
-// @TODO  incorrectly implemented
-func (b *brute) Remove(data ...predictor.DataPoint) {
-	b.mtx.Lock()
-	defer b.mtx.Unlock()
-	for _, p := range data {
-		b.data.Remove(avlnode.TimeNode{K: p.Time(), V: p})
-	}
 }
 
 func (b *brute) Build(data ...predictor.DataPoint) {
@@ -100,7 +91,7 @@ func (b *brute) Append(data ...predictor.DataPoint) {
 
 func (b *brute) knn(vec predictor.Vector, n int) ([]predictor.Vector, error) {
 	b.mtx.RLock()
-	list := b.data.Walk()
+	list := b.data.Points()
 	b.mtx.RUnlock()
 	pq := pqueue.New(pqueue.WithCap(uint(n)))
 	for _, item := range list {
@@ -136,7 +127,7 @@ func (b *brute) append(data ...predictor.DataPoint) {
 	}
 }
 
-func (b *brute) startOperation(ctx context.Context) {
+func (b *brute) schedule(ctx context.Context) {
 	outdatedTicker := time.NewTicker(rebuildOutdatedTime)
 	sizeTicker := time.NewTicker(rebuildSizeTime)
 	defer outdatedTicker.Stop()
@@ -176,7 +167,7 @@ func (b *brute) rebuildSize() {
 	b.mtx.Lock()
 	defer b.mtx.Unlock()
 	if b.data.Len() > b.opts.maxItemsStored {
-		list := b.data.Walk()
+		list := b.data.Points()
 		sub := b.data.Len() - b.opts.maxItemsStored
 
 		for i := range list[:sub] {
