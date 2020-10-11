@@ -172,7 +172,7 @@ func (b *kd) needBalanceKD() bool {
 
 func (b *kd) balanceKDTree() {
 	if b.needBalanceKD() {
-		b.gbTree.build(b.gbTree.tree().Points()...)
+		b.gbTree.tree().Balance()
 		atomic.StoreInt64(&b.appendOpCnt, 0)
 		atomic.StoreInt64(&b.appendOpTime, time.Now().Unix())
 	}
@@ -190,8 +190,8 @@ func (b *kd) needGBBuild() bool {
 
 func (b *kd) buildGBTree() {
 	if b.needGBBuild() {
-		items := make([]kdtree.Item, b.timesTree.Len())
 		b.mtx.RLock()
+		items := make([]kdtree.Item, b.timesTree.Len())
 		for i, point := range b.timesTree.Points() {
 			items[i] = point.(avlnode.TimeNode).V.Vector()
 		}
@@ -203,26 +203,26 @@ func (b *kd) buildGBTree() {
 }
 
 func (b *kd) rebuildOutdated() {
-	b.mtx.RLock()
-	defer b.mtx.RUnlock()
+	b.mtx.Lock()
+	defer b.mtx.Unlock()
 	list := b.timesTree.Filter(func(current avltree.Item) bool {
 		return time.Since(current.(avlnode.TimeNode).K) > b.opts.maxStorageTime
 	})
 	for i := range list {
 		b.timesTree.Remove(list[i])
-		b.removeOpCnt += 1
+		atomic.AddInt64(&b.removeOpCnt, 1)
 	}
 	b.rebuildOutdatedTime = time.Now()
 }
 
 func (b *kd) rebuildSize() {
-	b.mtx.RLock()
+	b.mtx.Lock()
+	defer b.mtx.Unlock()
 	sub := b.timesTree.Len() - b.opts.maxItemsStored
 	list := b.timesTree.Points()
-	b.mtx.RUnlock()
 	for _, timeNode := range list[:sub] {
 		b.timesTree.Remove(timeNode)
-		b.removeOpCnt += 1
+		atomic.AddInt64(&b.removeOpCnt, 1)
 	}
 }
 

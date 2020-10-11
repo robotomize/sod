@@ -27,7 +27,6 @@ type dbTxExecutor struct {
 	opts       dbTxExecutorOptions
 	metricDb   *metricDb.DB
 	buf        []model.Metric
-	closed     bool
 	shutdownCh chan<- error
 }
 
@@ -41,24 +40,34 @@ func (tx *dbTxExecutor) shutdown() error {
 	return nil
 }
 
-func (tx *dbTxExecutor) append(data model.Metric) error {
+func (tx *dbTxExecutor) append(ctx context.Context, data model.Metric) error {
 	tx.mtx.Lock()
 	if tx.buf == nil {
 		tx.buf = []model.Metric{}
 	}
 	tx.buf = append(tx.buf, data)
-	if len(tx.buf) >= tx.opts.dbFlushSize {
-		if err := tx.metricDb.AppendMany(context.Background(), tx.buf); err != nil {
-			return fmt.Errorf("txExecutor: append many operation failed: %v", err)
-		}
-		tx.buf = tx.buf[:0]
-	}
+	bufLen := len(tx.buf)
 	tx.mtx.Unlock()
+
+	if bufLen >= tx.opts.dbFlushSize {
+		go tx.appendMany(ctx)
+	}
 	return nil
 }
 
-func (tx *dbTxExecutor) flusher(ctx context.Context) {
+func (tx *dbTxExecutor) appendMany(ctx context.Context) {
 	logger := logging.FromContext(ctx)
+	tx.mtx.Lock()
+	tmpBuf := make([]model.Metric, len(tx.buf))
+	copy(tmpBuf, tx.buf)
+	tx.buf = tx.buf[:0]
+	tx.mtx.Unlock()
+	if err := tx.metricDb.AppendMany(context.Background(), tmpBuf); err != nil {
+		logger.Errorf("txExecutor: append many operation failed: %v", err)
+	}
+}
+
+func (tx *dbTxExecutor) flusher(ctx context.Context) {
 	defer func() {
 		tx.shutdownCh <- tx.shutdown()
 	}()
@@ -66,12 +75,7 @@ func (tx *dbTxExecutor) flusher(ctx context.Context) {
 	for {
 		select {
 		case <-ticker.C:
-			tx.mtx.Lock()
-			if err := tx.metricDb.AppendMany(context.Background(), tx.buf); err != nil {
-				logger.Errorf("txExecutor: append many operation failed: %v", err)
-			}
-			tx.buf = tx.buf[:0]
-			tx.mtx.Unlock()
+			tx.appendMany(ctx)
 		case <-ctx.Done():
 			return
 		}

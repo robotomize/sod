@@ -89,6 +89,5 @@ func run(ctx context.Context, cancel func()) error {
 			cancel()
 		}
 	}()
-
 	return <-shutdownCh
 }

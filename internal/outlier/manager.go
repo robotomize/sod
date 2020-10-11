@@ -295,8 +295,9 @@ func (d *manager) initialize(ctx context.Context) error {
 
 func (d *manager) process(ctx context.Context, metric model.Metric) error {
 	logger := logging.FromContext(ctx)
-	d.mtx.Lock()
+	d.mtx.RLock()
 	entityPredictor, ok := d.predictors[metric.EntityID]
+	d.mtx.RUnlock()
 	if !ok {
 		newPredictor, err := d.predictorProvideFn()
 		if err != nil {
@@ -304,13 +305,14 @@ func (d *manager) process(ctx context.Context, metric model.Metric) error {
 			return fmt.Errorf("can not create predictor instance: %v", err)
 		}
 		entityPredictor = newPredictor
+		d.mtx.Lock()
 		d.predictors[metric.EntityID] = newPredictor
+		d.mtx.Unlock()
 	}
-	d.mtx.Unlock()
 
 	if entityPredictor.Len() < d.opts.skipItems || entityPredictor.Len() < 3 {
 		metric.Status = model.StatusProcessed
-		if err := d.dbTxExecutor.append(metric); err != nil {
+		if err := d.dbTxExecutor.append(ctx, metric); err != nil {
 			return fmt.Errorf("error commit to tx executor: %v", err)
 		}
 		entityPredictor.Append(&metric)
@@ -318,7 +320,8 @@ func (d *manager) process(ctx context.Context, metric model.Metric) error {
 	}
 
 	metric.Status = model.StatusNew
-	if err := d.dbTxExecutor.append(metric); err != nil {
+
+	if err := d.dbTxExecutor.append(ctx, metric); err != nil {
 		return fmt.Errorf("error commit to tx executor: %v", err)
 	}
 
@@ -358,7 +361,8 @@ func (d *manager) process(ctx context.Context, metric model.Metric) error {
 	}
 
 	metric.Status = model.StatusProcessed
-	if err := d.dbTxExecutor.append(metric); err != nil {
+
+	if err := d.dbTxExecutor.append(ctx, metric); err != nil {
 		return fmt.Errorf("error commit to tx executor: %v", err)
 	}
 	return nil
@@ -381,7 +385,7 @@ func (d *manager) receive(ctx context.Context, q *iqueue.Queue) {
 	}
 }
 
-const workerMul = 32
+const workerMul = 4
 
 func (d *manager) worker(ctx context.Context, queue *iqueue.Queue, num int) {
 	for i := 0; i < num; i++ {
