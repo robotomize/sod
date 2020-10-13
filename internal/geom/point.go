@@ -7,7 +7,7 @@ import (
 
 type Point []float64
 
-func New(vec []float64) Point {
+func NewPoint(vec []float64) Point {
 	return vec
 }
 

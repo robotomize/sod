@@ -106,7 +106,7 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		dat := dat
 		errGrp.Go(func() error {
 			point := DataPoint{
-				Vec:       geom.New(dat.Vec),
+				Vec:       geom.NewPoint(dat.Vec),
 				CreatedAt: dat.CreatedAt,
 			}
 			result, err := h.outlier.Predict(req.EntityID, point)
