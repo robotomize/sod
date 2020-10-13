@@ -5,27 +5,27 @@ import (
 	"math"
 )
 
-var ErrDimNotEqual = fmt.Errorf("vectors dimension is not equal")
+var ErrDimNotEqual = fmt.Errorf("points dimension is not equal")
 
-func EuclideanDistance(vec, vec1 []float64) (float64, error) {
+func EuclideanDistance(p, p1 []float64) (float64, error) {
 	var d float64
-	if len(vec) != len(vec1) {
+	if len(p) != len(p1) {
 		return 0.0, ErrDimNotEqual
 	}
 
-	for i := 0; i < len(vec); i++ {
-		d += math.Pow(vec[i]-vec1[i], 2)
+	for i := 0; i < len(p); i++ {
+		d += math.Pow(p[i]-p1[i], 2)
 	}
 	return math.Sqrt(d), nil
 }
 
-func ChebyshevDistance(vec, vec1 []float64) (float64, error) {
+func ChebyshevDistance(p, p1 []float64) (float64, error) {
 	var absDistance, distance float64
-	if len(vec) != len(vec1) {
+	if len(p) != len(p1) {
 		return 0.0, ErrDimNotEqual
 	}
-	for i := 0; i < len(vec1); i++ {
-		absDistance = math.Abs(vec[i] - vec1[i])
+	for i := 0; i < len(p1); i++ {
+		absDistance = math.Abs(p[i] - p1[i])
 		if distance < absDistance {
 			distance = absDistance
 		}
@@ -33,14 +33,14 @@ func ChebyshevDistance(vec, vec1 []float64) (float64, error) {
 	return distance, nil
 }
 
-func ManhattanDistance(vec, vec1 []float64) (float64, error) {
+func ManhattanDistance(p, p1 []float64) (float64, error) {
 	var distance float64
-	if len(vec) != len(vec1) {
+	if len(p) != len(p1) {
 		return 0.0, ErrDimNotEqual
 	}
 	distance = 0
-	for i := 0; i < len(vec); i++ {
-		distance += math.Abs(vec[i] - vec1[i])
+	for i := 0; i < len(p); i++ {
+		distance += math.Abs(p[i] - p1[i])
 	}
 	return distance, nil
 }

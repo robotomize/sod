@@ -3,20 +3,15 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/valyala/fastrand"
-	"log"
 	"net/http"
 	_ "net/http/pprof"
 	"rango/internal/collect"
 	"rango/internal/config"
-	"rango/internal/integration"
 	"rango/internal/logging"
 	"rango/internal/predict"
 	"rango/internal/server"
 	"rango/internal/setup"
 	"rango/internal/shutdown"
-	"sync/atomic"
-	"time"
 )
 
 func main() {
@@ -92,39 +87,6 @@ func run(ctx context.Context, cancel func()) error {
 	go func() {
 		if err := srv.ServeHTTPHandler(ctx, mux); err != nil {
 			cancel()
-		}
-	}()
-
-	time.Sleep(2 * time.Second)
-	var j uint64
-	//tt := time.Now()
-	go func() {
-		for i := 0; i < 1000000; i++ {
-			go func() {
-				client := integration.NewClient(":8787")
-				resp, err := client.Collect(integration.Request{
-					EntityID: "hash1",
-					Data: []struct {
-						Vec       []float64   `json:"vector"`
-						Extra     interface{} `json:"extra"`
-						CreatedAt time.Time   `json:"createdAt"`
-					}{
-						{Vec: []float64{
-							float64(fastrand.Uint32n(10)),
-							float64(fastrand.Uint32n(10))}, Extra: "ok", CreatedAt: time.Now()},
-					},
-				})
-				if err != nil {
-					log.Println(err)
-					return
-				}
-				//fmt.Println(resp.Status)
-				defer resp.Body.Close()
-				_ = resp
-				atomic.AddUint64(&j, 1)
-				fmt.Println(atomic.LoadUint64(&j))
-			}()
-			time.Sleep(200 * time.Microsecond)
 		}
 	}()
 
