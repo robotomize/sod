@@ -10,11 +10,11 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"rango/internal/geom"
 	"rango/internal/logging"
 	"rango/internal/metric/model"
 	"rango/internal/outlier"
 	"rango/pkg/container/rworker"
-	"rango/pkg/math/vector"
 	"sort"
 	"sync"
 	"time"
@@ -200,7 +200,7 @@ OuterLoop:
 				return resp.Data[i].CreatedAt.Before(resp.Data[j].CreatedAt)
 			})
 			for _, dat := range resp.Data {
-				if err := s.outlier.Collect(model.NewMetric(resp.EntityID, vector.New(dat.Vec), dat.CreatedAt, dat.Extra)); err != nil {
+				if err := s.outlier.Collect(model.NewMetric(resp.EntityID, geom.New(dat.Vec), dat.CreatedAt, dat.Extra)); err != nil {
 					return fmt.Errorf("send to collect error: %v", err)
 				}
 			}

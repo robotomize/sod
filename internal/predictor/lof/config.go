@@ -2,10 +2,10 @@ package lof
 
 import (
 	"fmt"
+	"rango/internal/geom"
 	"rango/internal/predictor"
 	"rango/internal/predictor/knn/brute"
 	"rango/internal/predictor/knn/gbkd"
-	"rango/pkg/math/vector"
 	"time"
 )
 
@@ -50,11 +50,11 @@ func NNFor(a AlgType, maxItems int, maxTime time.Duration, distFn func(vec, vec1
 func DistanceFuncFor(d DistanceFuncType) (func(vec, vec1 []float64) (float64, error), error) {
 	switch d {
 	case DistanceFuncTypeChebyshev:
-		return vector.ChebyshevDistance, nil
+		return geom.ChebyshevDistance, nil
 	case DistanceFuncTypeEuclidean:
-		return vector.EuclideanDistance, nil
+		return geom.EuclideanDistance, nil
 	case DistanceFuncTypeManhattan:
-		return vector.ManhattanDistance, nil
+		return geom.ManhattanDistance, nil
 	default:
 		return nil, fmt.Errorf("unknown distance function: %s", d)
 	}

@@ -1,13 +1,13 @@
 package kdtree
 
 type node struct {
-	Key   Item
+	Key   Point
 	Left  *node
 	Right *node
 }
 
-func (n *node) Points() []Item {
-	var points []Item
+func (n *node) Points() []Point {
+	var points []Point
 	if n.Left != nil {
 		points = n.Left.Points()
 	}
@@ -18,7 +18,7 @@ func (n *node) Points() []Item {
 	return points
 }
 
-func (n *node) insertLeft(p Item, dim int) {
+func (n *node) insertLeft(p Point, dim int) {
 	if n.Left == nil {
 		n.Left = &node{Key: p}
 	} else {
@@ -26,7 +26,7 @@ func (n *node) insertLeft(p Item, dim int) {
 	}
 }
 
-func (n *node) insertRight(p Item, dim int) {
+func (n *node) insertRight(p Point, dim int) {
 	if n.Right == nil {
 		n.Right = &node{Key: p}
 	} else {
@@ -34,8 +34,8 @@ func (n *node) insertRight(p Item, dim int) {
 	}
 }
 
-func (n *node) Insert(p Item, dim int) {
-	if p.Point(dim) < n.Key.Point(dim) {
+func (n *node) Insert(p Point, dim int) {
+	if p.Dim(dim) < n.Key.Dim(dim) {
 		n.insertLeft(p, dim)
 	} else {
 		n.insertRight(p, dim)
@@ -46,21 +46,21 @@ type Range struct {
 	Min, Max float64
 }
 
-func (n *node) RangeSearch(r []Range, axis int) []Item {
-	var points []Item
+func (n *node) RangeSearch(r []Range, axis int) []Point {
+	var points []Point
 
 	for dim, limit := range r {
-		if limit.Min > n.Key.Point(dim) || limit.Max < n.Key.Point(dim) {
+		if limit.Min > n.Key.Dim(dim) || limit.Max < n.Key.Dim(dim) {
 			goto checkChildren
 		}
 	}
 	points = append(points, n.Key)
 
 checkChildren:
-	if n.Left != nil && n.Key.Point(axis) >= r[axis].Min {
+	if n.Left != nil && n.Key.Dim(axis) >= r[axis].Min {
 		points = append(points, n.Left.RangeSearch(r, (axis+1)%n.Key.Dimensions())...)
 	}
-	if n.Right != nil && n.Key.Point(axis) <= r[axis].Max {
+	if n.Right != nil && n.Key.Dim(axis) <= r[axis].Max {
 		points = append(points, n.Right.RangeSearch(r, (axis+1)%n.Key.Dimensions())...)
 	}
 

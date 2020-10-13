@@ -102,7 +102,7 @@ func (l *lof) Append(data ...predictor.DataPoint) {
 	l.alg.Append(data...)
 }
 
-func (l *lof) Predict(vec predictor.Vector) (*predictor.Conclusion, error) {
+func (l *lof) Predict(vec predictor.Point) (*predictor.Conclusion, error) {
 	if l.Len() == 0 {
 		return nil, fmt.Errorf("unable to predict, test vec size 0")
 	}
@@ -120,7 +120,7 @@ func (l *lof) Reset() {
 	l.alg.Reset()
 }
 
-func (l *lof) Lof(vec predictor.Vector) (float64, error) {
+func (l *lof) Lof(vec predictor.Point) (float64, error) {
 	var lrdSum, avgLrd float64
 	nn, err := l.alg.KNN(vec, l.kNum)
 	if err != nil {
@@ -149,7 +149,7 @@ func (l *lof) KNum() int {
 	return l.kNum
 }
 
-func (l *lof) predict(data predictor.Vector) (*predictor.Conclusion, error) {
+func (l *lof) predict(data predictor.Point) (*predictor.Conclusion, error) {
 	if err := l.validateKNum(); err != nil {
 		return nil, err
 	}
@@ -171,7 +171,7 @@ func (l *lof) validateKNum() error {
 	return nil
 }
 
-func (l *lof) kDistance(in predictor.Vector) (float64, error) {
+func (l *lof) kDistance(in predictor.Point) (float64, error) {
 	vectors, err := l.alg.KNN(in, 3)
 	if err != nil {
 		return 0.0, fmt.Errorf("unable compute KNN: %v", err)
@@ -179,7 +179,7 @@ func (l *lof) kDistance(in predictor.Vector) (float64, error) {
 	return l.distFunc(in.Points(), vectors[0].Points())
 }
 
-func (l *lof) reachabilityDist(vec, vec1 predictor.Vector) (float64, error) {
+func (l *lof) reachabilityDist(vec, vec1 predictor.Point) (float64, error) {
 	kDistance, err := l.kDistance(vec)
 	if err != nil {
 		return 0.0, fmt.Errorf("unable compute kDistance: %v", err)
@@ -191,7 +191,7 @@ func (l *lof) reachabilityDist(vec, vec1 predictor.Vector) (float64, error) {
 	return math.Max(kDistance, distance), nil
 }
 
-func (l *lof) lrd(vec predictor.Vector) (float64, error) {
+func (l *lof) lrd(vec predictor.Point) (float64, error) {
 	var rSum float64
 	nn, err := l.alg.KNN(vec, l.kNum)
 	if err != nil {

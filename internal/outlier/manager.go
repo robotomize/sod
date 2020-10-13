@@ -206,7 +206,7 @@ func (d *manager) Predict(entityID string, data predictor.DataPoint) (*predictor
 		d.predictors[entityID] = newPredictor
 	}
 	d.mtx.Unlock()
-	result, err := predictorFn.Predict(data.Vector())
+	result, err := predictorFn.Predict(data.Point())
 	if err != nil {
 		return nil, err
 	}
@@ -325,7 +325,7 @@ func (d *manager) process(ctx context.Context, metric model.Metric) error {
 		return fmt.Errorf("error commit to tx executor: %v", err)
 	}
 
-	result, predictErr := entityPredictor.Predict(metric.Vector())
+	result, predictErr := entityPredictor.Predict(metric.Point())
 	if predictErr != nil {
 		if err := d.metricDb.Delete(context.Background(), metric); err != nil {
 			return fmt.Errorf("unable predict: %v", fmt.Errorf("metric delete error %s: %v", metric.EntityID, err))
@@ -385,7 +385,7 @@ func (d *manager) receive(ctx context.Context, q *iqueue.Queue) {
 	}
 }
 
-const workerMul = 4
+const workerMul = 2
 
 func (d *manager) worker(ctx context.Context, queue *iqueue.Queue, num int) {
 	for i := 0; i < num; i++ {

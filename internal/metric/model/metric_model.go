@@ -2,8 +2,8 @@ package model
 
 import (
 	"github.com/google/uuid"
+	"rango/internal/geom"
 	"rango/internal/predictor"
-	"rango/pkg/math/vector"
 	"time"
 )
 
@@ -14,7 +14,7 @@ const (
 	StatusProcessed
 )
 
-func NewMetric(entityID string, vec vector.V, createdAt time.Time, extra interface{}) Metric {
+func NewMetric(entityID string, vec geom.Point, createdAt time.Time, extra interface{}) Metric {
 	return Metric{
 		ID:         uuid.New(),
 		EntityID:   entityID,
@@ -31,8 +31,8 @@ var _ predictor.DataPoint = (*Metric)(nil)
 type Metric struct {
 	ID         uuid.UUID   `json:"id"`
 	EntityID   string      `json:"entityId"`
-	NormVec    vector.V    `json:"normVec"`
-	CheckedVec vector.V    `json:"checkedVec"`
+	NormVec    geom.Point  `json:"normVec"`
+	CheckedVec geom.Point  `json:"checkedVec"`
 	Outlier    bool        `json:"outlier"`
 	Status     Status      `json:"status"`
 	CreatedAt  time.Time   `json:"createdAt"`
@@ -47,7 +47,7 @@ func (m Metric) IsNew() bool {
 	return m.Status == StatusNew
 }
 
-func (m Metric) Vector() predictor.Vector {
+func (m Metric) Point() predictor.Point {
 	return m.CheckedVec
 }
 

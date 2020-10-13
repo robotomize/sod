@@ -50,7 +50,7 @@ func (t *gbTree) tree() *kdtree.Tree {
 	return t.blue
 }
 
-func (t *gbTree) build(items ...kdtree.Item) {
+func (t *gbTree) build(items ...kdtree.Point) {
 	if atomic.LoadUint32(&t.state) == 0 {
 		t.blue.Build(items...)
 		atomic.StoreUint32(&t.state, 1)
@@ -102,10 +102,10 @@ func (b *kd) Build(data ...predictor.DataPoint) {
 		b.timesTree = avltree.New()
 	}
 
-	items := make([]kdtree.Item, len(data))
+	items := make([]kdtree.Point, len(data))
 
 	for i := range data {
-		items[i] = data[i].Vector()
+		items[i] = data[i].Point()
 		b.timesTree.Add(avlnode.TimeNode{
 			K: data[i].Time(),
 			V: data[i],
@@ -127,8 +127,8 @@ func (b *kd) Append(data ...predictor.DataPoint) {
 	}
 }
 
-func (b *kd) KNN(vec predictor.Vector, n int) ([]predictor.Vector, error) {
-	var kdVectors []predictor.Vector
+func (b *kd) KNN(vec predictor.Point, n int) ([]predictor.Point, error) {
+	var kdVectors []predictor.Point
 	b.mtx.RLock()
 	items, err := b.gbTree.tree().KNN(vec, n)
 	if err != nil {
@@ -136,7 +136,7 @@ func (b *kd) KNN(vec predictor.Vector, n int) ([]predictor.Vector, error) {
 	}
 	b.mtx.RUnlock()
 	for i := range items {
-		kdVectors = append(kdVectors, items[i].(predictor.Vector))
+		kdVectors = append(kdVectors, items[i].(predictor.Point))
 	}
 	return kdVectors, nil
 }
@@ -151,7 +151,7 @@ func (b *kd) Reset() {
 
 func (b *kd) append(data predictor.DataPoint) {
 	b.mtx.Lock()
-	b.gbTree.tree().Insert(data.Vector())
+	b.gbTree.tree().Insert(data.Point())
 	b.timesTree.Add(avlnode.TimeNode{
 		K: data.Time(),
 		V: data,
@@ -191,9 +191,9 @@ func (b *kd) needGBBuild() bool {
 func (b *kd) buildGBTree() {
 	if b.needGBBuild() {
 		b.mtx.RLock()
-		items := make([]kdtree.Item, b.timesTree.Len())
+		items := make([]kdtree.Point, b.timesTree.Len())
 		for i, point := range b.timesTree.Points() {
-			items[i] = point.(avlnode.TimeNode).V.Vector()
+			items[i] = point.(avlnode.TimeNode).V.Point()
 		}
 		b.mtx.RUnlock()
 		b.gbTree.build(items...)

@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"rango/internal/geom"
 	"rango/internal/httputil"
 	"rango/internal/logging"
 	"rango/internal/metric/model"
 	"rango/internal/outlier"
-	"rango/pkg/math/vector"
 	"sort"
 	"time"
 )
@@ -76,7 +76,7 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		})
 		for _, dat := range req.Data {
 			if err := h.outlier.Collect(
-				model.NewMetric(req.EntityID, vector.New(dat.Vec), dat.CreatedAt, dat.Extra),
+				model.NewMetric(req.EntityID, geom.New(dat.Vec), dat.CreatedAt, dat.Extra),
 			); err != nil {
 				logger.Errorf("error sending to collect service: %v", err)
 			}

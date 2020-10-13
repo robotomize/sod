@@ -6,14 +6,14 @@ import (
 
 type ProvideFn func() (Predictor, error)
 
-type Vector interface {
-	Point(idx int) float64
+type Point interface {
+	Dim(idx int) float64
 	Dimensions() int
 	Points() []float64
 }
 
 type DataPoint interface {
-	Vector() Vector
+	Point() Point
 	Time() time.Time
 }
 
@@ -22,7 +22,7 @@ type Predictor interface {
 	Len() int
 	Build(data ...DataPoint)
 	Append(data ...DataPoint)
-	Predict(vec Vector) (*Conclusion, error)
+	Predict(vec Point) (*Conclusion, error)
 }
 
 type KNNAlg interface {
@@ -30,7 +30,7 @@ type KNNAlg interface {
 	Len() int
 	Build(data ...DataPoint)
 	Append(data ...DataPoint)
-	KNN(vec Vector, k int) ([]Vector, error)
+	KNN(vec Point, k int) ([]Point, error)
 }
 
 type Conclusion struct {

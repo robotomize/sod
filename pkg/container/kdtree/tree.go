@@ -7,8 +7,8 @@ import (
 	"sort"
 )
 
-type Item interface {
-	Point(idx int) float64
+type Point interface {
+	Dim(idx int) float64
 	Dimensions() int
 	Points() []float64
 }
@@ -27,11 +27,11 @@ type Tree struct {
 	distFn func(vec, vec1 []float64) (float64, error)
 }
 
-func (t *Tree) RangeSearch(r []Range) []Item {
+func (t *Tree) RangeSearch(r []Range) []Point {
 	return t.root.RangeSearch(r, 0)
 }
 
-func (t *Tree) Build(points ...Item) {
+func (t *Tree) Build(points ...Point) {
 	t.len = len(points)
 	t.root = buildTreeRecursive(points, 0)
 }
@@ -40,7 +40,7 @@ func (t *Tree) Len() int {
 	return t.len
 }
 
-func (t *Tree) Insert(p Item) {
+func (t *Tree) Insert(p Point) {
 	if t.root == nil {
 		t.root = &node{Key: p}
 	} else {
@@ -53,25 +53,25 @@ func (t *Tree) Balance() {
 	t.root = buildTreeRecursive(t.Points(), 0)
 }
 
-func (t *Tree) Points() []Item {
+func (t *Tree) Points() []Point {
 	if t.root == nil {
-		return []Item{}
+		return []Point{}
 	}
 	return t.root.Points()
 }
 
-func (t *Tree) KNN(p Item, k int) ([]Item, error) {
+func (t *Tree) KNN(p Point, k int) ([]Point, error) {
 	if t.root == nil || k == 0 {
-		return []Item{}, fmt.Errorf("root is nil or K is 0")
+		return []Point{}, fmt.Errorf("root is nil or K is 0")
 	}
 
 	queue := pqueue.New(pqueue.WithCap(uint(k)))
 
 	if err := t.knn(p, k, t.root, 0, queue); err != nil {
-		return []Item{}, err
+		return []Point{}, err
 	}
 
-	points := make([]Item, queue.Len())
+	points := make([]Point, queue.Len())
 	for i := 0; i < k && 0 < queue.Len(); i++ {
 		o := queue.Head().(*node).Key
 		points[i] = o
@@ -80,7 +80,7 @@ func (t *Tree) KNN(p Item, k int) ([]Item, error) {
 	return points, nil
 }
 
-func (t *Tree) knn(p Item, k int, first *node, dim int, queue *pqueue.Queue) error {
+func (t *Tree) knn(p Point, k int, first *node, dim int, queue *pqueue.Queue) error {
 	if k == 0 || first == nil {
 		return nil
 	}
@@ -90,7 +90,7 @@ func (t *Tree) knn(p Item, k int, first *node, dim int, queue *pqueue.Queue) err
 
 	for currentNode != nil {
 		path = append(path, currentNode)
-		if p.Point(dim) < currentNode.Key.Point(dim) {
+		if p.Dim(dim) < currentNode.Key.Dim(dim) {
 			currentNode = currentNode.Left
 		} else {
 			currentNode = currentNode.Right
@@ -112,7 +112,7 @@ func (t *Tree) knn(p Item, k int, first *node, dim int, queue *pqueue.Queue) err
 
 		if distanceForDimension(p, currentNode.Key, dim) < checkedDistance {
 			var next *node
-			if p.Point(dim) < currentNode.Key.Point(dim) {
+			if p.Dim(dim) < currentNode.Key.Dim(dim) {
 				next = currentNode.Right
 			} else {
 				next = currentNode.Left
@@ -128,7 +128,7 @@ func (t *Tree) knn(p Item, k int, first *node, dim int, queue *pqueue.Queue) err
 
 type sortPoints struct {
 	dim    int
-	points []Item
+	points []Point
 }
 
 func (b *sortPoints) Len() int {
@@ -136,14 +136,14 @@ func (b *sortPoints) Len() int {
 }
 
 func (b *sortPoints) Less(i, j int) bool {
-	return b.points[i].Point(b.dim) < b.points[j].Point(b.dim)
+	return b.points[i].Dim(b.dim) < b.points[j].Dim(b.dim)
 }
 
 func (b *sortPoints) Swap(i, j int) {
 	b.points[i], b.points[j] = b.points[j], b.points[i]
 }
 
-func buildTreeRecursive(points []Item, dim int) *node {
+func buildTreeRecursive(points []Point, dim int) *node {
 	if len(points) == 0 {
 		return nil
 	}
@@ -162,8 +162,8 @@ func buildTreeRecursive(points []Item, dim int) *node {
 	}
 }
 
-func distanceForDimension(vec, vec1 Item, dim int) float64 {
-	return math.Abs(vec1.Point(dim) - vec.Point(dim))
+func distanceForDimension(vec, vec1 Point, dim int) float64 {
+	return math.Abs(vec1.Dim(dim) - vec.Dim(dim))
 }
 
 func popLast(arr []*node) ([]*node, *node) {

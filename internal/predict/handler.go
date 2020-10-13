@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"golang.org/x/sync/errgroup"
 	"net/http"
+	"rango/internal/geom"
 	"rango/internal/httputil"
 	"rango/internal/logging"
 	"rango/internal/outlier"
 	"rango/internal/predictor"
-	"rango/pkg/math/vector"
 	"sync"
 	"time"
 )
@@ -18,11 +18,11 @@ import (
 const maxBodyBytes = 64 * 1024 * 1024
 
 type DataPoint struct {
-	Vec       predictor.Vector `json:"vec"`
-	CreatedAt time.Time        `json:"createdAt"`
+	Vec       predictor.Point `json:"vector"`
+	CreatedAt time.Time       `json:"createdAt"`
 }
 
-func (d DataPoint) Vector() predictor.Vector {
+func (d DataPoint) Point() predictor.Point {
 	return d.Vec
 }
 
@@ -106,7 +106,7 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		dat := dat
 		errGrp.Go(func() error {
 			point := DataPoint{
-				Vec:       vector.New(dat.Vec),
+				Vec:       geom.New(dat.Vec),
 				CreatedAt: dat.CreatedAt,
 			}
 			result, err := h.outlier.Predict(req.EntityID, point)
@@ -119,7 +119,7 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				Vec       []float64   `json:"vector"`
 				Extra     interface{} `json:"extra"`
 				CreatedAt time.Time   `json:"createdAt"`
-			}{Outlier: result.Outlier, Vec: point.Vector().Points(), Extra: dat.Extra, CreatedAt: dat.CreatedAt})
+			}{Outlier: result.Outlier, Vec: point.Point().Points(), Extra: dat.Extra, CreatedAt: dat.CreatedAt})
 			mtx.Unlock()
 			return nil
 		})

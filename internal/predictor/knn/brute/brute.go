@@ -61,7 +61,7 @@ func (b *brute) Reset() {
 	b.mtx.Unlock()
 }
 
-func (b *brute) KNN(vec predictor.Vector, k int) ([]predictor.Vector, error) {
+func (b *brute) KNN(vec predictor.Point, k int) ([]predictor.Point, error) {
 	return b.knn(vec, k)
 }
 
@@ -89,25 +89,25 @@ func (b *brute) Append(data ...predictor.DataPoint) {
 	b.append(data...)
 }
 
-func (b *brute) knn(vec predictor.Vector, n int) ([]predictor.Vector, error) {
+func (b *brute) knn(vec predictor.Point, n int) ([]predictor.Point, error) {
 	b.mtx.RLock()
 	list := b.data.Points()
 	b.mtx.RUnlock()
 	pq := pqueue.New(pqueue.WithCap(uint(n)))
 	for _, item := range list {
-		distance, err := b.distFunc(vec.Points(), item.Value().(predictor.DataPoint).Vector().Points())
+		distance, err := b.distFunc(vec.Points(), item.Value().(predictor.DataPoint).Point().Points())
 		if err != nil {
 			return nil, fmt.Errorf(
 				"unable to compute distance between %v and %v: %w",
-				vec.Points(), item.Value().(predictor.Vector).Points(),
+				vec.Points(), item.Value().(predictor.Point).Points(),
 				err,
 			)
 		}
-		pq.Push(item.Value().(predictor.DataPoint).Vector(), distance)
+		pq.Push(item.Value().(predictor.DataPoint).Point(), distance)
 	}
-	knn := make([]predictor.Vector, pq.Len())
+	knn := make([]predictor.Point, pq.Len())
 	for i, pData := range pq.PopAll() {
-		knn[i] = pData.(predictor.Vector)
+		knn[i] = pData.(predictor.Point)
 	}
 
 	if len(knn) < n {

@@ -3,6 +3,7 @@ module rango
 go 1.14
 
 require (
+	github.com/davecgh/go-xdr v0.0.0-20161123171359-e6a2ba005892
 	github.com/google/uuid v1.1.2
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/valyala/fastrand v1.0.0
