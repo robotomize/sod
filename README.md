@@ -4,7 +4,7 @@
 
 **Note**: The current version is not intended for use in production
 
-![SOD Logo](docs/images/sod-horizontal-small.svg)
+## <img src="https://raw.githubusercontent.com/robotomize/sod/main/docs/images/sod-horizontal.svg" width="400">
 
 SOD  - simple outlier detection. A simple solution for detecting anomalies in a vector data stream with a focus on being:
 
