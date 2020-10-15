@@ -39,8 +39,8 @@ SOD uses the configuration method via environment variables.
 Running SOD from the repository
 
 ```bash
-go run cmd/sod
-
+git clone https://github.com/robotomize/sod.git
+cd sod
 go build cmd/sod
 ```
 or build docker image
@@ -64,13 +64,14 @@ POST request to /predict
   "data": [
     {"vector": [10], "extra": "robotomize", "createdAt": "timestamp"},
     {"vector": [10], "extra": "robotomize", "createdAt": "timestamp"},
+    {"vector": [10], "extra": "robotomize", "createdAt": "timestamp"},
     {"vector": [100], "extra": "robotomize", "createdAt": "timestamp"}
   ] 
 }
 ```
 
 ```bash
-curl -X POST -d '{entityId: "user-lives", "data": [ {"vector": [10], "extra": "robotomize", "createdAt": "timestamp"}, {"vector": [10], "extra": "robotomize", "createdAt": "timestamp"},{"vector": [100], "extra": "robotomize", "createdAt": "timestamp"}]}' http://localhost:8787/predict
+curl -X POST -d '{entityId: "user-lives", "data": [ {"vector": [10], "extra": "robotomize", "createdAt": "timestamp"}, {"vector": [10], "extra": "robotomize", "createdAt": "timestamp"}, {"vector": [10], "extra": "robotomize", "createdAt": "timestamp"}, {"vector": [100], "extra": "robotomize", "createdAt": "timestamp"}]}' http://localhost:8787/predict
 ```
 
 response
@@ -78,8 +79,6 @@ response
 {
   "entity": "user-lives",
   "data": [
-    {"vector": [10], "extra": "robotomize", "createdAt": "timestamp"},
-    {"vector": [10], "extra": "robotomize", "createdAt": "timestamp"},
     {"vector": [100], "outlier": true, "extra": "robotomize", "createdAt": "timestamp"}
   ] 
 }
@@ -98,7 +97,8 @@ POST request to /collect
   "data": [
     {"vec": [20, 365, 7], "extra": "20-10-2020", "createdAt": "timestamp"},
     {"vec": [21, 364, 2], "extra": "21-10-2020", "createdAt": "timestamp"},
-    {"vec": [25, 366, 0], "extra": "22-10-2020", "createdAt": "timestamp"}
+    {"vec": [20, 365, 5], "extra": "22-10-2020", "createdAt": "timestamp"},
+    {"vec": [25, 370, 0], "extra": "22-10-2020", "createdAt": "timestamp"} // potential outlier
   ] 
 }
 ```
