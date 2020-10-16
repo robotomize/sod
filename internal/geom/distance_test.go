@@ -28,7 +28,7 @@ func TestChebyshevDistance(t *testing.T) {
 			got, _ := ChebyshevDistance(test.p, test.p1)
 			if test.expected != got {
 				t.Errorf(
-					"the distance obtained does not correspond to the expected distance, got %f, expected %f",
+					"the distance obtained does not correspond to the slice distance, got %f, slice %f",
 					got, test.expected)
 			}
 		}
@@ -69,7 +69,7 @@ func TestEuclideanDistance(t *testing.T) {
 			got, _ := EuclideanDistance(test.p, test.p1)
 			if test.expected != got {
 				t.Errorf(
-					"the distance obtained does not correspond to the expected distance, got %f, expected %f",
+					"the distance obtained does not correspond to the slice distance, got %f, slice %f",
 					got, test.expected)
 			}
 		}
@@ -111,7 +111,7 @@ func TestManhattanDistance(t *testing.T) {
 			got, _ := ManhattanDistance(test.p, test.p1)
 			if test.expected != got {
 				t.Errorf(
-					"the distance obtained does not correspond to the expected distance, got %f, expected %f",
+					"the distance obtained does not correspond to the slice distance, got %f, slice %f",
 					got, test.expected)
 			}
 		}
