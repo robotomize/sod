@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"rango/internal/logging"
-	"rango/internal/srvenv"
+	"sod/internal/logging"
+	"sod/internal/srvenv"
 	"time"
 )
 

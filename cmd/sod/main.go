@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"net/http"
 	_ "net/http/pprof"
-	"rango/internal/collect"
-	"rango/internal/config"
-	"rango/internal/logging"
-	"rango/internal/predict"
-	"rango/internal/server"
-	"rango/internal/setup"
-	"rango/internal/shutdown"
+	"sod/internal/collect"
+	"sod/internal/config"
+	"sod/internal/logging"
+	"sod/internal/predict"
+	"sod/internal/server"
+	"sod/internal/setup"
+	"sod/internal/shutdown"
 )
 
 func main() {

@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	bolt "go.etcd.io/bbolt"
-	"rango/internal/alert/model"
-	"rango/internal/database"
+	"sod/internal/alert/model"
+	"sod/internal/database"
 )
 
 const (

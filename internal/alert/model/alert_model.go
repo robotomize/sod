@@ -2,7 +2,7 @@ package model
 
 import (
 	"github.com/google/uuid"
-	"rango/internal/metric/model"
+	"sod/internal/metric/model"
 	"time"
 )
 

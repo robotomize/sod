@@ -3,10 +3,10 @@ package brute
 import (
 	"context"
 	"fmt"
-	"rango/internal/predictor"
-	"rango/internal/predictor/knn/avlnode"
-	"rango/pkg/container/avltree"
-	"rango/pkg/container/pqueue"
+	"sod/internal/predictor"
+	"sod/internal/predictor/knn/avlnode"
+	"sod/pkg/container/avltree"
+	"sod/pkg/container/pqueue"
 	"sync"
 	"time"
 )

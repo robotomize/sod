@@ -4,14 +4,14 @@ import (
 	"context"
 	"fmt"
 	"github.com/kelseyhightower/envconfig"
-	"rango/internal/alert"
-	"rango/internal/database"
-	"rango/internal/logging"
-	"rango/internal/outlier"
-	"rango/internal/predictor"
-	"rango/internal/predictor/lof"
-	"rango/internal/scrape"
-	"rango/internal/srvenv"
+	"sod/internal/alert"
+	"sod/internal/database"
+	"sod/internal/logging"
+	"sod/internal/outlier"
+	"sod/internal/predictor"
+	"sod/internal/predictor/lof"
+	"sod/internal/scrape"
+	"sod/internal/srvenv"
 )
 
 const (

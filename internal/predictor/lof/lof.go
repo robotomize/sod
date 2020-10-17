@@ -3,7 +3,7 @@ package lof
 import (
 	"fmt"
 	"math"
-	"rango/internal/predictor"
+	"sod/internal/predictor"
 	"time"
 )
 

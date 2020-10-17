@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	bolt "go.etcd.io/bbolt"
-	"rango/internal/database"
-	"rango/internal/metric/model"
+	"sod/internal/database"
+	"sod/internal/metric/model"
 	"strings"
 )
 

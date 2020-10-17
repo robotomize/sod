@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"rango/internal/logging"
+	"sod/internal/logging"
 	"strings"
 )
 

@@ -2,28 +2,28 @@ package gbkd
 
 import (
 	"context"
-	"rango/internal/predictor"
-	"rango/internal/predictor/knn/avlnode"
-	"rango/pkg/container/avltree"
-	"rango/pkg/container/kdtree"
+	"sod/internal/predictor"
+	"sod/internal/predictor/knn/avlnode"
+	"sod/pkg/container/avltree"
+	"sod/pkg/container/kdtree"
 	"sync"
 	"sync/atomic"
 	"time"
 )
 
 func WithMaxItems(n int) Option {
-	return func(l *kd) {
+	return func(l *gbkd) {
 		l.opts.maxItemsStored = n
 	}
 }
 
 func WithStorageTime(t time.Duration) Option {
-	return func(l *kd) {
+	return func(l *gbkd) {
 		l.opts.maxStorageTime = t
 	}
 }
 
-type Option func(*kd)
+type Option func(*gbkd)
 
 type Options struct {
 	maxItemsStored int
@@ -60,8 +60,8 @@ func (t *gbTree) build(items ...kdtree.Point) {
 	}
 }
 
-func NewBKDAlg(distanceFn func(vec, vec1 []float64) (float64, error), opts ...Option) *kd {
-	b := &kd{
+func NewGBkdAlg(distanceFn func(vec, vec1 []float64) (float64, error), opts ...Option) *gbkd {
+	b := &gbkd{
 		distanceFn:          distanceFn,
 		timesTree:           avltree.New(),
 		rebuildOutdatedTime: time.Now(),
@@ -76,7 +76,7 @@ func NewBKDAlg(distanceFn func(vec, vec1 []float64) (float64, error), opts ...Op
 	return b
 }
 
-type kd struct {
+type gbkd struct {
 	mtx                 sync.RWMutex
 	opts                Options
 	distanceFn          func(vec, vec1 []float64) (float64, error)
@@ -90,11 +90,11 @@ type kd struct {
 	cancel              func()
 }
 
-func (b *kd) Close() {
+func (b *gbkd) Close() {
 	b.cancel()
 }
 
-func (b *kd) Build(data ...predictor.DataPoint) {
+func (b *gbkd) Build(data ...predictor.DataPoint) {
 	b.mtx.Lock()
 	defer b.mtx.Unlock()
 
@@ -115,19 +115,19 @@ func (b *kd) Build(data ...predictor.DataPoint) {
 	b.gbTree.build(items...)
 }
 
-func (b *kd) Len() int {
+func (b *gbkd) Len() int {
 	b.mtx.RLock()
 	defer b.mtx.RUnlock()
 	return b.gbTree.tree().Len()
 }
 
-func (b *kd) Append(data ...predictor.DataPoint) {
+func (b *gbkd) Append(data ...predictor.DataPoint) {
 	for i := range data {
 		b.append(data[i])
 	}
 }
 
-func (b *kd) KNN(vec predictor.Point, n int) ([]predictor.Point, error) {
+func (b *gbkd) KNN(vec predictor.Point, n int) ([]predictor.Point, error) {
 	var kdVectors []predictor.Point
 	b.mtx.RLock()
 	items, err := b.gbTree.tree().KNN(vec, n)
@@ -141,7 +141,7 @@ func (b *kd) KNN(vec predictor.Point, n int) ([]predictor.Point, error) {
 	return kdVectors, nil
 }
 
-func (b *kd) Reset() {
+func (b *gbkd) Reset() {
 	b.mtx.Lock()
 	b.gbTree.blue = kdtree.New(b.distanceFn)
 	b.gbTree.green = kdtree.New(b.distanceFn)
@@ -149,7 +149,7 @@ func (b *kd) Reset() {
 	b.mtx.Unlock()
 }
 
-func (b *kd) append(data predictor.DataPoint) {
+func (b *gbkd) append(data predictor.DataPoint) {
 	b.mtx.Lock()
 	b.gbTree.tree().Insert(data.Point())
 	b.timesTree.Add(avlnode.TimeNode{
@@ -160,7 +160,7 @@ func (b *kd) append(data predictor.DataPoint) {
 	atomic.AddInt64(&b.appendOpCnt, 1)
 }
 
-func (b *kd) needBalanceKD() bool {
+func (b *gbkd) needBalanceKD() bool {
 	b.mtx.RLock()
 	gbLen := b.gbTree.tree().Len()
 	b.mtx.RUnlock()
@@ -170,7 +170,7 @@ func (b *kd) needBalanceKD() bool {
 		(valueDiff > 0.001 || (atomic.LoadInt64(&b.appendOpCnt) > 0 && timeDiff > int64(greenBlueBuildTime.Seconds())))
 }
 
-func (b *kd) balanceKDTree() {
+func (b *gbkd) balanceKDTree() {
 	if b.needBalanceKD() {
 		b.gbTree.tree().Balance()
 		atomic.StoreInt64(&b.appendOpCnt, 0)
@@ -178,7 +178,7 @@ func (b *kd) balanceKDTree() {
 	}
 }
 
-func (b *kd) needGBBuild() bool {
+func (b *gbkd) needGBBuild() bool {
 	b.mtx.RLock()
 	gbLen := b.gbTree.tree().Len()
 	b.mtx.RUnlock()
@@ -188,7 +188,7 @@ func (b *kd) needGBBuild() bool {
 		(valueDiff > 0.01 || (atomic.LoadInt64(&b.removeOpCnt) > 0 && timeDiff > int64(greenBlueBuildTime.Seconds())))
 }
 
-func (b *kd) buildGBTree() {
+func (b *gbkd) buildGBTree() {
 	if b.needGBBuild() {
 		b.mtx.RLock()
 		items := make([]kdtree.Point, b.timesTree.Len())
@@ -202,7 +202,7 @@ func (b *kd) buildGBTree() {
 	}
 }
 
-func (b *kd) rebuildOutdated() {
+func (b *gbkd) rebuildOutdated() {
 	b.mtx.Lock()
 	defer b.mtx.Unlock()
 	list := b.timesTree.Filter(func(current avltree.Item) bool {
@@ -215,7 +215,7 @@ func (b *kd) rebuildOutdated() {
 	b.rebuildOutdatedTime = time.Now()
 }
 
-func (b *kd) rebuildSize() {
+func (b *gbkd) rebuildSize() {
 	b.mtx.Lock()
 	defer b.mtx.Unlock()
 	sub := b.timesTree.Len() - b.opts.maxItemsStored
@@ -226,7 +226,7 @@ func (b *kd) rebuildSize() {
 	}
 }
 
-func (b *kd) schedule(ctx context.Context) {
+func (b *gbkd) schedule(ctx context.Context) {
 	outdatedTicker := time.NewTicker(rebuildOutdatedTime)
 	sizeTicker := time.NewTicker(rebuildSizeTime)
 	kdBalanceTicker := time.NewTicker(balanceKDTreeTime)

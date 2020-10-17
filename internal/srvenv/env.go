@@ -2,11 +2,11 @@ package srvenv
 
 import (
 	"context"
-	"rango/internal/alert"
-	"rango/internal/database"
-	"rango/internal/outlier"
-	"rango/internal/predictor"
-	"rango/internal/scrape"
+	"sod/internal/alert"
+	"sod/internal/database"
+	"sod/internal/outlier"
+	"sod/internal/predictor"
+	"sod/internal/scrape"
 )
 
 type Option func(*SrvEnv) *SrvEnv

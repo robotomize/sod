@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	bolt "go.etcd.io/bbolt"
-	"rango/internal/logging"
+	"sod/internal/logging"
 )
 
 type DB struct {

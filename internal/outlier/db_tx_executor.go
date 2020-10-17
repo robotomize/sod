@@ -3,10 +3,10 @@ package outlier
 import (
 	"context"
 	"fmt"
-	"rango/internal/database"
-	"rango/internal/logging"
-	metricDb "rango/internal/metric/database"
-	"rango/internal/metric/model"
+	"sod/internal/database"
+	"sod/internal/logging"
+	metricDb "sod/internal/metric/database"
+	"sod/internal/metric/model"
 	"sync"
 	"time"
 )

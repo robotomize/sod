@@ -3,7 +3,7 @@ package kdtree
 import (
 	"fmt"
 	"math"
-	"rango/pkg/container/pqueue"
+	"sod/pkg/container/pqueue"
 	"sort"
 )
 

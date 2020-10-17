@@ -2,8 +2,8 @@ package model
 
 import (
 	"github.com/google/uuid"
-	"rango/internal/geom"
-	"rango/internal/predictor"
+	"sod/internal/geom"
+	"sod/internal/predictor"
 	"time"
 )
 

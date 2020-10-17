@@ -2,7 +2,7 @@ package alert
 
 import (
 	"encoding/json"
-	"rango/internal/httputil"
+	"sod/internal/httputil"
 	"time"
 )
 

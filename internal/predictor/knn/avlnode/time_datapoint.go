@@ -1,8 +1,8 @@
 package avlnode
 
 import (
-	"rango/internal/predictor"
-	"rango/pkg/container/avltree"
+	"sod/internal/predictor"
+	"sod/pkg/container/avltree"
 	"time"
 )
 

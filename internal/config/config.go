@@ -1,14 +1,14 @@
 package sod
 
 import (
-	"rango/internal/alert"
-	"rango/internal/collect"
-	"rango/internal/database"
-	"rango/internal/outlier"
-	"rango/internal/predict"
-	"rango/internal/predictor"
-	"rango/internal/scrape"
-	"rango/internal/setup"
+	"sod/internal/alert"
+	"sod/internal/collect"
+	"sod/internal/database"
+	"sod/internal/outlier"
+	"sod/internal/predict"
+	"sod/internal/predictor"
+	"sod/internal/scrape"
+	"sod/internal/setup"
 )
 
 var (

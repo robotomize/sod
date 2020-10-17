@@ -1,4 +1,4 @@
-module rango
+module sod
 
 go 1.14
 
