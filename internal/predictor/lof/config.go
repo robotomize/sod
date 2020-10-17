@@ -41,7 +41,7 @@ func NNFor(a AlgType, maxItems int, maxTime time.Duration, distFn func(vec, vec1
 		return brute.NewBruteAlg(distFn, brute.WithMaxItems(maxItems), brute.WithStorageTime(maxTime)), nil
 	case AlgTypeKDTree:
 		//return kd.NewKDAlg(distFn, kd.WithStorageTime(maxTime), kd.WithMaxItems(maxItems)), nil
-		return gbkd.NewBKDAlg(distFn, gbkd.WithStorageTime(maxTime), gbkd.WithMaxItems(maxItems)), nil
+		return gbkd.NewGBkdAlg(distFn, gbkd.WithStorageTime(maxTime), gbkd.WithMaxItems(maxItems)), nil
 	default:
 		return nil, fmt.Errorf("unable to create alg with alg type %s", a)
 	}
