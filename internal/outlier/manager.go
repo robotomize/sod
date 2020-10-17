@@ -165,7 +165,7 @@ func (d *manager) Run(ctx context.Context) error {
 	go d.collector(ctx)
 	go d.dbTxExecutor.flusher(ctx)
 	go d.dbScheduler.schedule(ctx)
-	if err := d.initialize(ctx); err != nil {
+	if err := d.bulkLoad(ctx, d.metricDb.FindAll); err != nil {
 		return fmt.Errorf("can not start outlier manager: %v", err)
 	}
 	if err := d.notifier.Run(c); err != nil {
@@ -236,7 +236,7 @@ func (d *manager) shutdown(ctx context.Context, q *iqueue.Queue) error {
 			d.cancelNotifier()
 			break
 		}
-		if err := d.process(ctx, front.Value.(model.Metric)); err != nil {
+		if err := d.process(ctx, front.Value.(model.Metric), d.metricDb.Delete); err != nil {
 			return fmt.Errorf("outlier shutdown: unable processed data: %v", err)
 		}
 		q.Queue().Remove(front)
@@ -254,13 +254,16 @@ func (d *manager) recvShutdown() bool {
 	return finishedNum == predictorsNum
 }
 
-func (d *manager) initialize(ctx context.Context) error {
+type fetchAllMetricsFn func(context.Context, metricDb.FilterFn) ([]model.Metric, error)
+
+func (d *manager) bulkLoad(ctx context.Context, fetchAllMetricsFn fetchAllMetricsFn) error {
 	var newMetrics []model.Metric
 
-	data, err := d.metricDb.FindAll(ctx, nil)
+	data, err := fetchAllMetricsFn(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("error fetching all metrics: %v", err)
 	}
+
 	processedMetrics := map[string][]predictor.DataPoint{}
 	for _, dat := range data {
 		if _, ok := processedMetrics[dat.EntityID]; !ok {
@@ -275,16 +278,16 @@ func (d *manager) initialize(ctx context.Context) error {
 	}
 
 	for k, list := range processedMetrics {
-		predictor, ok := d.predictors[k]
+		loadPredictor, ok := d.predictors[k]
 		if !ok {
 			newPredictorFn, err := d.predictorProvideFn()
 			if err != nil {
 				return fmt.Errorf("can not create predictor instance: %v", err)
 			}
 			d.predictors[k] = newPredictorFn
-			predictor = newPredictorFn
+			loadPredictor = newPredictorFn
 		}
-		predictor.Build(list...)
+		loadPredictor.Build(list...)
 	}
 
 	for i := range newMetrics {
@@ -293,7 +296,9 @@ func (d *manager) initialize(ctx context.Context) error {
 	return nil
 }
 
-func (d *manager) process(ctx context.Context, metric model.Metric) error {
+type deleteMetricFn func(context.Context, model.Metric) error
+
+func (d *manager) process(ctx context.Context, metric model.Metric, deleteFn deleteMetricFn) error {
 	logger := logging.FromContext(ctx)
 	d.mtx.RLock()
 	entityPredictor, ok := d.predictors[metric.EntityID]
@@ -327,7 +332,7 @@ func (d *manager) process(ctx context.Context, metric model.Metric) error {
 
 	result, predictErr := entityPredictor.Predict(metric.Point())
 	if predictErr != nil {
-		if err := d.metricDb.Delete(context.Background(), metric); err != nil {
+		if err := deleteFn(context.Background(), metric); err != nil {
 			return fmt.Errorf("unable predict: %v", fmt.Errorf("metric delete error %s: %v", metric.EntityID, err))
 		}
 		return fmt.Errorf("unable predict: %v", predictErr)
@@ -350,7 +355,7 @@ func (d *manager) process(ctx context.Context, metric model.Metric) error {
 	}
 
 	if !d.opts.allowAppendData {
-		if err := d.metricDb.Delete(ctx, metric); err != nil {
+		if err := deleteFn(ctx, metric); err != nil {
 			return fmt.Errorf("delete transaction error: %v", err)
 		}
 		return nil
@@ -376,7 +381,7 @@ func (d *manager) receive(ctx context.Context, q *iqueue.Queue) {
 	for {
 		select {
 		case recv := <-q.Receive():
-			if err := d.process(ctx, recv.(model.Metric)); err != nil {
+			if err := d.process(ctx, recv.(model.Metric), d.metricDb.Delete); err != nil {
 				logger.Errorf("unable processed data: %v", err)
 			}
 		case <-ctx.Done():

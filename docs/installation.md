@@ -1,4 +1,3 @@
-
 ### Getting SOD
 
 The simplest method to run is to run the docker image and throw the necessary environment variables.

@@ -26,12 +26,10 @@ type ProvideFn = func(chan<- error) (Manager, error)
 const UserAgent = "SOD/0.1"
 
 type Options struct {
-	maxConcurrentRequest  int
-	requestTimeout        time.Duration
-	tlsHandshakeTimeout   time.Duration
-	responseHeaderTimeout time.Duration
-	alertInterval         time.Duration
-	targets               Targets
+	maxConcurrentRequest int
+	requestTimeout       time.Duration
+	alertInterval        time.Duration
+	targets              Targets
 }
 
 type Option func(*manager)
@@ -112,8 +110,8 @@ type manager struct {
 func (m *manager) Run(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	m.cancel = cancel
-	go m.notifier(ctx)
-	if err := m.initialize(ctx); err != nil {
+	go m.notifier(ctx, m.alertDb.Store, m.alertDb.Delete)
+	if err := m.bulkLoad(ctx, m.alertDb.Delete, m.alertDb.FindAll); err != nil {
 		return fmt.Errorf("can not start alert manager: %v", err)
 	}
 	return nil
@@ -134,27 +132,33 @@ func (m *manager) Notify(metrics ...metricModel.Metric) {
 	m.mtx.Unlock()
 }
 
-func (m *manager) initialize(ctx context.Context) error {
+type deleteFn func(context.Context, model.Alert) error
+
+type fetchAllFn func(context.Context, alertDb.FilterFn) ([]model.Alert, error)
+
+func (m *manager) bulkLoad(ctx context.Context, deleteFn deleteFn, fetchFn fetchAllFn) error {
 	logger := logging.FromContext(ctx)
-	alerts, err := m.alertDb.FindAll(ctx, nil)
+	alerts, err := fetchFn(ctx, nil)
 	if err != nil {
 		logger.Errorf("Error with fetching data from db, %v", err)
 	}
 	for i := range alerts {
 		m.Notify(alerts[i].Metrics...)
-		if err := m.alertDb.Delete(context.Background(), alerts[i]); err != nil {
-			return fmt.Errorf("unable delete alert on initialize: %v", err)
+		if err := deleteFn(context.Background(), alerts[i]); err != nil {
+			return fmt.Errorf("unable delete alert on bulkLoad: %v", err)
 		}
 	}
 	return nil
 }
 
-func (m *manager) shutdown() error {
+type storeFn func(context.Context, model.Alert) error
+
+func (m *manager) shutdown(fn storeFn) error {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
 	for entityID, metrics := range m.alerts {
 		alert := model.NewAlert(entityID, metrics)
-		if err := m.alertDb.Store(context.Background(), alert); err != nil {
+		if err := fn(context.Background(), alert); err != nil {
 			return fmt.Errorf("alert shutdown: unable store alert: %v", err)
 		}
 	}
@@ -163,7 +167,7 @@ func (m *manager) shutdown() error {
 
 type makeRequestFn func() request
 
-func (m *manager) notifier(ctx context.Context) {
+func (m *manager) notifier(ctx context.Context, storeFn storeFn, deleteFn deleteFn) {
 	logger := logging.FromContext(ctx)
 	errCh := make(chan error, 1)
 	rateCh := make(chan struct{}, m.opts.maxConcurrentRequest)
@@ -175,7 +179,7 @@ func (m *manager) notifier(ctx context.Context) {
 		}
 	}()
 	defer func() {
-		m.shutdownCh <- m.shutdown()
+		m.shutdownCh <- m.shutdown(storeFn)
 	}()
 	wg := sync.WaitGroup{}
 	ticker := time.NewTicker(m.opts.alertInterval)
@@ -190,7 +194,7 @@ func (m *manager) notifier(ctx context.Context) {
 				}
 				rworker.Job(&wg, func() error {
 					alertModel := model.NewAlert(metrics[0].EntityID, metrics)
-					if err := m.alertDb.Store(context.Background(), alertModel); err != nil {
+					if err := storeFn(context.Background(), alertModel); err != nil {
 						return fmt.Errorf("unable store alert: %v", err)
 					}
 					if err := m.do(context.Background(), target, func() request {
@@ -210,7 +214,7 @@ func (m *manager) notifier(ctx context.Context) {
 					}); err != nil {
 						return fmt.Errorf("alert do request error: %v", err)
 					}
-					if err := m.alertDb.Delete(context.Background(), alertModel); err != nil {
+					if err := deleteFn(context.Background(), alertModel); err != nil {
 						return fmt.Errorf("unable store alert: %v", err)
 					}
 					m.mtx.Lock()
@@ -229,27 +233,33 @@ func (m *manager) notifier(ctx context.Context) {
 func (m *manager) do(ctx context.Context, target Target, fn makeRequestFn) error {
 	ctx, cancel := context.WithTimeout(ctx, m.opts.requestTimeout)
 	defer cancel()
+
 	request := fn()
 	body, err := json.Marshal(request)
 	if err != nil {
 		return fmt.Errorf("unable encode json data: %w", err)
 	}
+
 	b := make([]byte, len(body))
 	link, err := url.Parse(target.Url)
 	if err != nil {
 		return fmt.Errorf("url parsing error: %w", err)
 	}
+
 	req, err := http.NewRequestWithContext(ctx, "POST", link.String(), bytes.NewReader(b))
 	if err != nil {
 		return fmt.Errorf("creating request error: %w", err)
 	}
+
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Add("User-Agent", UserAgent)
 	req.Header.Add("Accept-Encoding", "gzip")
+
 	client, ok := m.clients[target.EntityID]
 	if !ok {
 		return fmt.Errorf("client for entityID %s not defined", target.EntityID)
 	}
+
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("sending request error: %w", err)
@@ -277,5 +287,6 @@ func (m *manager) do(ctx context.Context, target Target, fn makeRequestFn) error
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("response was not 200 OK: %s", body)
 	}
+
 	return nil
 }

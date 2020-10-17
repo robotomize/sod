@@ -38,15 +38,16 @@ The simplest method to run is to run the docker image and throw the necessary en
 SOD uses the configuration method via environment variables. 
 Running SOD from the repository
 
-```bash
-git clone https://github.com/robotomize/sod.git
-cd sod
-go build cmd/sod
 ```
+ $ git clone https://github.com/robotomize/sod.git
+ $ cd sod
+ $ go build cmd/sod
+```
+
 or build docker image
 
 ```bash
-docker build .
+ $ docker build .
 ```
 
 By default, the application runs on **:8787**. SOD operates in two modes:
@@ -119,6 +120,8 @@ response
 {"status":  "ok"}  
 ```
 
+### Documentation
+* [Installation](docs/installation.md)
 
 ### License
 

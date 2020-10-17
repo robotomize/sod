@@ -26,23 +26,27 @@ type dbScheduler struct {
 	metricDb *metricDb.DB
 }
 
+type deleteMetricsFn func(context.Context, []model.Metric) error
+
+type fetchMetricsByEntityFn func(string, metricDb.FilterFn) ([]model.Metric, error)
+
 // @TODO not optimal for memory usage
-func (s *dbScheduler) processOutdatedMetrics(entityID string) error {
-	metrics, err := s.metricDb.FindByEntity(entityID, func(metric model.Metric) bool {
+func (s *dbScheduler) processOutdatedMetrics(entityID string, fetchFn fetchMetricsByEntityFn, deleteFn deleteMetricsFn) error {
+	metrics, err := fetchFn(entityID, func(metric model.Metric) bool {
 		return metric.Status == model.StatusProcessed && time.Since(metric.CreatedAt) > s.opts.maxStorageTime
 	})
 	if err != nil {
 		return fmt.Errorf("unable find metrics by entity %s: %v", entityID, err)
 	}
-	if err := s.metricDb.DeleteMany(context.Background(), metrics); err != nil {
+	if err := deleteFn(context.Background(), metrics); err != nil {
 		return fmt.Errorf("unable delete resizable metrics entity %s: %v", entityID, err)
 	}
 	return nil
 }
 
 // @TODO not optimal for memory usage
-func (s *dbScheduler) processOverSizeMetrics(entityID string) error {
-	metrics, err := s.metricDb.FindByEntity(entityID, func(metric model.Metric) bool {
+func (s *dbScheduler) processOverSizeMetrics(entityID string, fetchFn fetchMetricsByEntityFn, deleteFn deleteMetricsFn) error {
+	metrics, err := fetchFn(entityID, func(metric model.Metric) bool {
 		return metric.Status == model.StatusProcessed
 	})
 	if err != nil {
@@ -51,7 +55,7 @@ func (s *dbScheduler) processOverSizeMetrics(entityID string) error {
 	sort.Slice(metrics, func(i, j int) bool {
 		return metrics[i].CreatedAt.UnixNano() < metrics[j].CreatedAt.UnixNano()
 	})
-	if err := s.metricDb.DeleteMany(context.Background(), metrics[:len(metrics)-s.opts.maxItemsStored]); err != nil {
+	if err := deleteFn(context.Background(), metrics[:len(metrics)-s.opts.maxItemsStored]); err != nil {
 		return fmt.Errorf("unable delete resizable metrics entity %s: %v", entityID, err)
 	}
 	return nil
@@ -63,7 +67,7 @@ func (s *dbScheduler) rebuildOutdated() error {
 		return fmt.Errorf("unable to fetch metric keys: %v", err)
 	}
 	for i := range keys {
-		if err := s.processOutdatedMetrics(keys[i]); err != nil {
+		if err := s.processOutdatedMetrics(keys[i], s.metricDb.FindByEntity, s.metricDb.DeleteMany); err != nil {
 			return fmt.Errorf("unable process metrics: %v", err)
 		}
 	}
@@ -81,7 +85,7 @@ func (s *dbScheduler) rebuildSize() error {
 			return fmt.Errorf("unable count by entity %s: %v", keys[i], err)
 		}
 		if length > s.opts.maxItemsStored {
-			if err := s.processOverSizeMetrics(keys[i]); err != nil {
+			if err := s.processOverSizeMetrics(keys[i], s.metricDb.FindByEntity, s.metricDb.DeleteMany); err != nil {
 				return fmt.Errorf("unable process metrics: %v", err)
 			}
 		}

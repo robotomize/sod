@@ -11,8 +11,6 @@ import (
 	"time"
 )
 
-type StoreFn func(context.Context, model.Metric) error
-
 func newTxExecutor(db *database.DB, opts dbTxExecutorOptions, shutdownCh chan<- error) *dbTxExecutor {
 	return &dbTxExecutor{metricDb: metricDb.New(db), opts: opts, shutdownCh: shutdownCh}
 }
@@ -50,19 +48,21 @@ func (tx *dbTxExecutor) append(ctx context.Context, data model.Metric) error {
 	tx.mtx.Unlock()
 
 	if bufLen >= tx.opts.dbFlushSize {
-		go tx.appendMany(ctx)
+		go tx.appendMany(ctx, tx.metricDb.AppendMany)
 	}
 	return nil
 }
 
-func (tx *dbTxExecutor) appendMany(ctx context.Context) {
+type appendMetricsFn func(context.Context, []model.Metric) error
+
+func (tx *dbTxExecutor) appendMany(ctx context.Context, fn appendMetricsFn) {
 	logger := logging.FromContext(ctx)
 	tx.mtx.Lock()
 	tmpBuf := make([]model.Metric, len(tx.buf))
 	copy(tmpBuf, tx.buf)
 	tx.buf = tx.buf[:0]
 	tx.mtx.Unlock()
-	if err := tx.metricDb.AppendMany(context.Background(), tmpBuf); err != nil {
+	if err := fn(context.Background(), tmpBuf); err != nil {
 		logger.Errorf("txExecutor: append many operation failed: %v", err)
 	}
 }
@@ -75,7 +75,7 @@ func (tx *dbTxExecutor) flusher(ctx context.Context) {
 	for {
 		select {
 		case <-ticker.C:
-			tx.appendMany(ctx)
+			tx.appendMany(ctx, tx.metricDb.AppendMany)
 		case <-ctx.Done():
 			return
 		}
