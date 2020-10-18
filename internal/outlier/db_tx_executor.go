@@ -46,7 +46,7 @@ func (tx *dbTxExecutor) shutdown(fn appendMetricsFn) error {
 
 // append This is the main method for adding data. It adds data to the buffer.
 // If the buffer is full, it calls the bulkAppend method
-func (tx *dbTxExecutor) append(ctx context.Context, data model.Metric) error {
+func (tx *dbTxExecutor) append(ctx context.Context, data model.Metric, fn appendMetricsFn) {
 	tx.mtx.Lock()
 	if tx.buf == nil {
 		tx.buf = []model.Metric{}
@@ -57,9 +57,8 @@ func (tx *dbTxExecutor) append(ctx context.Context, data model.Metric) error {
 	tx.mtx.Unlock()
 
 	if bufLen >= tx.opts.dbFlushSize {
-		go tx.bulkAppend(ctx, tx.metricDb.AppendMany)
+		go tx.bulkAppend(ctx, fn)
 	}
-	return nil
 }
 
 type appendMetricsFn func(context.Context, []model.Metric) error

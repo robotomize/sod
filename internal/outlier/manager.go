@@ -317,18 +317,14 @@ func (d *manager) process(ctx context.Context, metric model.Metric, deleteFn del
 
 	if entityPredictor.Len() < d.opts.skipItems || entityPredictor.Len() < 3 {
 		metric.Status = model.StatusProcessed
-		if err := d.dbTxExecutor.append(ctx, metric); err != nil {
-			return fmt.Errorf("error commit to tx executor: %v", err)
-		}
+		d.dbTxExecutor.append(ctx, metric, d.metricDb.AppendMany)
 		entityPredictor.Append(&metric)
 		return nil
 	}
 
 	metric.Status = model.StatusNew
 
-	if err := d.dbTxExecutor.append(ctx, metric); err != nil {
-		return fmt.Errorf("error commit to tx executor: %v", err)
-	}
+	d.dbTxExecutor.append(ctx, metric, d.metricDb.AppendMany)
 
 	result, predictErr := entityPredictor.Predict(metric.Point())
 	if predictErr != nil {
@@ -367,9 +363,8 @@ func (d *manager) process(ctx context.Context, metric model.Metric, deleteFn del
 
 	metric.Status = model.StatusProcessed
 
-	if err := d.dbTxExecutor.append(ctx, metric); err != nil {
-		return fmt.Errorf("error commit to tx executor: %v", err)
-	}
+	d.dbTxExecutor.append(ctx, metric, d.metricDb.AppendMany)
+
 	return nil
 }
 
