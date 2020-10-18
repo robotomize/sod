@@ -163,7 +163,7 @@ func (d *manager) Run(ctx context.Context) error {
 	c, cancel := context.WithCancel(context.Background())
 	d.cancelNotifier = cancel
 	go d.collector(ctx)
-	go d.dbTxExecutor.flusher(ctx)
+	go d.dbTxExecutor.flusher(ctx, d.metricDb.AppendMany)
 	go d.dbScheduler.schedule(ctx)
 	if err := d.bulkLoad(ctx, d.metricDb.FindAll); err != nil {
 		return fmt.Errorf("can not start outlier manager: %v", err)
