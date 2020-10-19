@@ -1,4 +1,4 @@
-package outlier
+package dispatcher
 
 import (
 	"context"
@@ -167,7 +167,7 @@ func (d *manager) Run(ctx context.Context) error {
 	go d.dbTxExecutor.flusher(ctx, d.metricDb.AppendMany)
 	go d.dbScheduler.schedule(ctx)
 	if err := d.bulkLoad(ctx, d.metricDb.FindAll); err != nil {
-		return fmt.Errorf("can not start outlier manager: %v", err)
+		return fmt.Errorf("can not start dispatcher manager: %v", err)
 	}
 	if err := d.notifier.Run(c); err != nil {
 		return fmt.Errorf("alert.Run: %w", err)
@@ -232,13 +232,13 @@ func (d *manager) shutdown(ctx context.Context, q *iqueue.Queue) error {
 		front := q.Queue().Front()
 		if front == nil {
 			if !d.recvShutdown() {
-				return fmt.Errorf("outlier shutdown: closed num receivers not equal created")
+				return fmt.Errorf("dispatcher shutdown: closed num receivers not equal created")
 			}
 			d.cancelNotifier()
 			break
 		}
 		if err := d.process(ctx, front.Value.(model.Metric), d.metricDb.Delete); err != nil {
-			return fmt.Errorf("outlier shutdown: unable processed data: %v", err)
+			return fmt.Errorf("dispatcher shutdown: unable processed data: %v", err)
 		}
 		q.Queue().Remove(front)
 	}
@@ -338,7 +338,7 @@ func (d *manager) process(ctx context.Context, metric model.Metric, deleteFn del
 	metric.Outlier = result.Outlier
 
 	if result.Outlier {
-		logger.Infof("detect outlier, %v", result)
+		logger.Infof("detect dispatcher, %v", result)
 		d.mtx.RLock()
 		if vec, ok := d.normVectors[metric.EntityID]; ok {
 			metric.NormVec = vec

@@ -46,7 +46,7 @@ func run(ctx context.Context, cancel func()) error {
 	}
 	outlier, err := env.ProvideOutlier()(notifier, shutdownCh)
 	if err != nil {
-		return fmt.Errorf("outlier provider function error: %w", err)
+		return fmt.Errorf("dispatcher provider function error: %w", err)
 	}
 
 	if config.SvcModeType == sod.SvcModeTypeScrape {
@@ -58,7 +58,7 @@ func run(ctx context.Context, cancel func()) error {
 			return fmt.Errorf("scrapperRun: %w", err)
 		}
 	} else if err := outlier.Run(ctx); err != nil {
-		return fmt.Errorf("outlier.Run: %w", err)
+		return fmt.Errorf("dispatcher.Run: %w", err)
 	}
 
 	srv, err := server.New(config.SrvAddr)

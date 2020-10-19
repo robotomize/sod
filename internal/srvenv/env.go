@@ -4,7 +4,7 @@ import (
 	"context"
 	"sod/internal/alert"
 	"sod/internal/database"
-	"sod/internal/outlier"
+	"sod/internal/dispatcher"
 	"sod/internal/predictor"
 	"sod/internal/scrape"
 )
@@ -23,7 +23,7 @@ func New(opts ...Option) *SrvEnv {
 type SrvEnv struct {
 	database  *database.DB
 	predictor predictor.ProvideFn
-	outlier   outlier.ProvideFn
+	outlier   dispatcher.ProvideFn
 	notifier  alert.ProvideFn
 	scrapper  scrape.ProvideFn
 }
@@ -36,7 +36,7 @@ func (s *SrvEnv) ProvideNotifier() alert.ProvideFn {
 	return s.notifier
 }
 
-func (s *SrvEnv) ProvideOutlier() outlier.ProvideFn {
+func (s *SrvEnv) ProvideOutlier() dispatcher.ProvideFn {
 	return s.outlier
 }
 
@@ -62,7 +62,7 @@ func WithNotifier(fn alert.ProvideFn) Option {
 	}
 }
 
-func WithOutlier(fn outlier.ProvideFn) Option {
+func WithOutlier(fn dispatcher.ProvideFn) Option {
 	return func(s *SrvEnv) *SrvEnv {
 		s.outlier = fn
 		return s

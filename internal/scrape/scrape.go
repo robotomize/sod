@@ -10,17 +10,17 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"sod/internal/dispatcher"
 	"sod/internal/geom"
 	"sod/internal/logging"
 	"sod/internal/metric/model"
-	"sod/internal/outlier"
 	"sod/pkg/container/rworker"
 	"sort"
 	"sync"
 	"time"
 )
 
-type ProvideFn = func(outlier.Manager, chan<- error) (Manager, error)
+type ProvideFn = func(dispatcher.Manager, chan<- error) (Manager, error)
 
 const UserAgent = "SOD/0.1"
 
@@ -52,9 +52,9 @@ func WithTargetUrls(m Targets) Option {
 	}
 }
 
-func New(outlier outlier.Manager, shutdownCh chan<- error, opts ...Option) (*manager, error) {
+func New(outlier dispatcher.Manager, shutdownCh chan<- error, opts ...Option) (*manager, error) {
 	if outlier == nil {
-		return nil, fmt.Errorf("outlier instance is not defined")
+		return nil, fmt.Errorf("dispatcher instance is not defined")
 	}
 	m := &manager{
 		targets:    Targets{},
@@ -90,7 +90,7 @@ type Manager interface {
 type manager struct {
 	opts          Options
 	targets       Targets
-	outlier       outlier.Manager
+	outlier       dispatcher.Manager
 	client        *http.Client
 	shutdownCh    chan<- error
 	cancelOutlier func()
@@ -107,7 +107,7 @@ func (s *manager) Run(ctx context.Context) error {
 	c, cancel := context.WithCancel(context.Background())
 	s.cancelOutlier = cancel
 	if err := s.outlier.Run(c); err != nil {
-		return fmt.Errorf("outlier.Run: %w", err)
+		return fmt.Errorf("dispatcher.Run: %w", err)
 	}
 	go func() {
 		defer func() {

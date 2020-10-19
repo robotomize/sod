@@ -1,4 +1,4 @@
-package outlier
+package dispatcher
 
 import (
 	"time"

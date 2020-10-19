@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sod/internal/dispatcher"
 	"sod/internal/geom"
 	"sod/internal/httputil"
 	"sod/internal/logging"
 	"sod/internal/metric/model"
-	"sod/internal/outlier"
 	"sort"
 	"time"
 )
@@ -25,7 +25,7 @@ type request struct {
 	} `json:"data"`
 }
 
-func NewHandler(cfg *Config, outlier outlier.Collector) (http.Handler, error) {
+func NewHandler(cfg *Config, outlier dispatcher.Collector) (http.Handler, error) {
 	s := &handler{
 		outlier: outlier,
 		cfg:     cfg,
@@ -34,7 +34,7 @@ func NewHandler(cfg *Config, outlier outlier.Collector) (http.Handler, error) {
 }
 
 type handler struct {
-	outlier outlier.Collector
+	outlier dispatcher.Collector
 	cfg     *Config
 }
 

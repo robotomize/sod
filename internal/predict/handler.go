@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"golang.org/x/sync/errgroup"
 	"net/http"
+	"sod/internal/dispatcher"
 	"sod/internal/geom"
 	"sod/internal/httputil"
 	"sod/internal/logging"
-	"sod/internal/outlier"
 	"sod/internal/predictor"
 	"sync"
 	"time"
@@ -49,7 +49,7 @@ type response struct {
 	} `json:"data"`
 }
 
-func NewHandler(cfg *Config, outlier outlier.Predictor) (http.Handler, error) {
+func NewHandler(cfg *Config, outlier dispatcher.Predictor) (http.Handler, error) {
 	return &handler{
 		cfg:     cfg,
 		outlier: outlier,
@@ -57,7 +57,7 @@ func NewHandler(cfg *Config, outlier outlier.Predictor) (http.Handler, error) {
 }
 
 type handler struct {
-	outlier outlier.Predictor
+	outlier dispatcher.Predictor
 	cfg     *Config
 }
 

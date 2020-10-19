@@ -6,8 +6,8 @@ import (
 	"github.com/kelseyhightower/envconfig"
 	"sod/internal/alert"
 	"sod/internal/database"
+	"sod/internal/dispatcher"
 	"sod/internal/logging"
-	"sod/internal/outlier"
 	"sod/internal/predictor"
 	"sod/internal/predictor/lof"
 	"sod/internal/scrape"
@@ -24,7 +24,7 @@ type SvcModeConfigProvider interface {
 }
 
 type OutlierConfigProvider interface {
-	OutlierConfig() *outlier.Config
+	OutlierConfig() *dispatcher.Config
 }
 
 type NotifierConfigProvider interface {
@@ -55,7 +55,7 @@ func Setup(ctx context.Context, config interface{}) (*srvenv.SrvEnv, error) {
 		db                 *database.DB
 		predictorProvideFn predictor.ProvideFn
 		notifierProvideFn  alert.ProvideFn
-		outlierProvideFn   outlier.ProvideFn
+		outlierProvideFn   dispatcher.ProvideFn
 		scrapperProvideFn  scrape.ProvideFn
 	)
 	if dbConfigProvider, ok := config.(DatabaseConfigProvider); ok {
@@ -91,7 +91,7 @@ func Setup(ctx context.Context, config interface{}) (*srvenv.SrvEnv, error) {
 		}
 		outlierConfigProvider, ok := config.(OutlierConfigProvider)
 		if !ok {
-			return nil, fmt.Errorf("unable read outlier config")
+			return nil, fmt.Errorf("unable read dispatcher config")
 		}
 		provideFn, err := ProvidePredictorFor(cfg, outlierConfigProvider.OutlierConfig())
 		if err != nil {
@@ -130,7 +130,7 @@ func ProvideScrapperFor(provider ScrapeConfigProvider) (scrape.ProvideFn, error)
 	if err := envconfig.Process("", cfg); err != nil {
 		return nil, fmt.Errorf("dont process scrapper env: %w", err)
 	}
-	return func(outlier outlier.Manager, shutdownCh chan<- error) (scrape.Manager, error) {
+	return func(outlier dispatcher.Manager, shutdownCh chan<- error) (scrape.Manager, error) {
 		return scrape.New(
 			outlier,
 			shutdownCh,
@@ -157,30 +157,30 @@ func ProvideNotifierFor(provider NotifierConfigProvider, db *database.DB) (alert
 	}, nil
 }
 
-func ProvideOutlierFor(provider OutlierConfigProvider, providePredictFn predictor.ProvideFn, db *database.DB) (outlier.ProvideFn, error) {
+func ProvideOutlierFor(provider OutlierConfigProvider, providePredictFn predictor.ProvideFn, db *database.DB) (dispatcher.ProvideFn, error) {
 	cfg := provider.OutlierConfig()
 	if err := envconfig.Process("", cfg); err != nil {
-		return nil, fmt.Errorf("dont process outlier env: %w", err)
+		return nil, fmt.Errorf("dont process dispatcher env: %w", err)
 	}
-	return func(notifier alert.Manager, shutdownCh chan<- error) (outlier.Manager, error) {
-		return outlier.New(
+	return func(notifier alert.Manager, shutdownCh chan<- error) (dispatcher.Manager, error) {
+		return dispatcher.New(
 			db,
 			providePredictFn,
 			notifier,
 			shutdownCh,
-			outlier.WithRebuildDbTime(cfg.RebuildDBTime),
-			outlier.WithAllowAppendData(cfg.AllowAppendData),
-			outlier.WithAllowAppendOutlier(cfg.AllowAppendOutlier),
-			outlier.WithMaxItemsStored(cfg.MaxItemsStored),
-			outlier.WithMaxStorageTime(cfg.MaxStorageTime),
-			outlier.WithSkipItems(cfg.SkipItems),
-			outlier.WithDbFlushSize(cfg.DbFlushSize),
-			outlier.WithDbFlushTime(cfg.DbFlushTime),
+			dispatcher.WithRebuildDbTime(cfg.RebuildDBTime),
+			dispatcher.WithAllowAppendData(cfg.AllowAppendData),
+			dispatcher.WithAllowAppendOutlier(cfg.AllowAppendOutlier),
+			dispatcher.WithMaxItemsStored(cfg.MaxItemsStored),
+			dispatcher.WithMaxStorageTime(cfg.MaxStorageTime),
+			dispatcher.WithSkipItems(cfg.SkipItems),
+			dispatcher.WithDbFlushSize(cfg.DbFlushSize),
+			dispatcher.WithDbFlushTime(cfg.DbFlushTime),
 		)
 	}, nil
 }
 
-func ProvidePredictorFor(cfg *predictor.Config, outlierCfg *outlier.Config) (predictor.ProvideFn, error) {
+func ProvidePredictorFor(cfg *predictor.Config, outlierCfg *dispatcher.Config) (predictor.ProvideFn, error) {
 	switch cfg.PredictorType() {
 	case predictor.AlgTypeLof:
 		cfgLof := lof.Config{}

@@ -4,7 +4,7 @@ import (
 	"sod/internal/alert"
 	"sod/internal/collect"
 	"sod/internal/database"
-	"sod/internal/outlier"
+	"sod/internal/dispatcher"
 	"sod/internal/predict"
 	"sod/internal/predictor"
 	"sod/internal/scrape"
@@ -27,7 +27,7 @@ const (
 type Config struct {
 	SvcModeType string `envconfig:"SOD_SVC_MODE" default:"COLLECT"`
 	SrvAddr     string `envconfig:"SOD_ADDR" default:":8787"`
-	Outlier     outlier.Config
+	Outlier     dispatcher.Config
 	Collect     collect.Config
 	Predict     predict.Config
 	Database    database.Config
@@ -40,7 +40,7 @@ func (c Config) SvcMode() string {
 	return c.SvcModeType
 }
 
-func (c Config) OutlierConfig() *outlier.Config {
+func (c Config) OutlierConfig() *dispatcher.Config {
 	return &c.Outlier
 }
 
