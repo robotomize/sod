@@ -47,8 +47,9 @@ func NewBruteAlg(distFn func(vec, vec1 []float64) (float64, error), opts ...Opti
 }
 
 type brute struct {
+	mtx sync.RWMutex
+
 	opts      Options
-	mtx       sync.RWMutex
 	data      *avltree.Tree
 	createdAt time.Time
 	distFunc  func(vec, vec1 []float64) (float64, error)

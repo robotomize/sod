@@ -96,10 +96,10 @@ POST request to /collect
 {
   "entity": "weather",
   "data": [
-    {"vec": [20, 365, 7], "extra": "20-10-2020", "createdAt": "timestamp"},
-    {"vec": [21, 364, 2], "extra": "21-10-2020", "createdAt": "timestamp"},
-    {"vec": [20, 365, 5], "extra": "22-10-2020", "createdAt": "timestamp"},
-    {"vec": [25, 370, 0], "extra": "22-10-2020", "createdAt": "timestamp"}
+    {"vector": [20, 365, 7], "extra": "20-10-2020", "createdAt": "timestamp"},
+    {"vector": [21, 364, 2], "extra": "21-10-2020", "createdAt": "timestamp"},
+    {"vector": [20, 365, 5], "extra": "22-10-2020", "createdAt": "timestamp"},
+    {"vector": [25, 370, 0], "extra": "22-10-2020", "createdAt": "timestamp"}
   ] 
 }
 ```

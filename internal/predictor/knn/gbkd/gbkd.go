@@ -77,7 +77,8 @@ func NewGBkdAlg(distanceFn func(vec, vec1 []float64) (float64, error), opts ...O
 }
 
 type gbkd struct {
-	mtx                 sync.RWMutex
+	mtx sync.RWMutex
+
 	opts                Options
 	distanceFn          func(vec, vec1 []float64) (float64, error)
 	rebuildOutdatedTime time.Time

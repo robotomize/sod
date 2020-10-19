@@ -134,7 +134,8 @@ type CollectPredictor interface {
 }
 
 type manager struct {
-	mtx  sync.RWMutex
+	mtx sync.RWMutex
+
 	opts Options
 
 	metricDb     *metricDb.DB

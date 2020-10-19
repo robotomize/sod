@@ -61,6 +61,7 @@ func (tx *dbTxExecutor) append(ctx context.Context, data model.Metric, fn append
 	}
 }
 
+// abstraction layer for adding a group of metrics
 type appendMetricsFn func(context.Context, []model.Metric) error
 
 // bulkAppend bulk adds data to persistent storage and clears the buffer
