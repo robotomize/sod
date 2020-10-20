@@ -131,6 +131,7 @@ response
 * cli client
 * Another transport gateways
 * Try implement R tree/R*tree
+* Try implement isolation forest alg
 * DB abstraction layer
 * Web ui
 

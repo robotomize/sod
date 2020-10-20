@@ -22,7 +22,7 @@ func TestDbxExecutorFlusher(t *testing.T) {
 		batch          []model.Metric
 	}{
 		{
-			name:        "positive_shutdown",
+			name:        "positive_flusher",
 			waitingTime: 1 * time.Second,
 			txExecutor:  &dbTxExecutor{opts: dbTxExecutorOptions{dbFlushTime: 1 * time.Second}},
 			batch: []model.Metric{
@@ -37,6 +37,7 @@ func TestDbxExecutorFlusher(t *testing.T) {
 			expectedErr:    nil,
 		},
 	}
+
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			length := 0
@@ -55,15 +56,21 @@ func TestDbxExecutorFlusher(t *testing.T) {
 
 			time.Sleep(test.waitingTime)
 			cancel()
+
 			if length != test.expectedLen {
 				t.Errorf(
-					"calling the shutdown method, the length of the inserted data got: %v, expected: %v",
-					length, test.expectedLen)
+					"calling the flusher method, the length of the inserted data got: %v, expected: %v",
+					length,
+					test.expectedLen,
+				)
 			}
+
 			if len(test.txExecutor.buf) != test.expectedBufLen {
 				t.Errorf(
 					"calling the shutdown method, the length of buffer got: %v, expected: %v",
-					len(test.txExecutor.buf), test.expectedBufLen)
+					len(test.txExecutor.buf),
+					test.expectedBufLen,
+				)
 			}
 		})
 	}
@@ -72,30 +79,56 @@ func TestDbxExecutorFlusher(t *testing.T) {
 func TestDbTxExecutorAppend(t *testing.T) {
 	tests := []struct {
 		name           string
-		txExecutor     *dbTxExecutor
-		model          model.Metric
+		items          []model.Metric
 		shutdownCh     chan error
 		expectedErr    error
 		expectedLen    int
 		expectedBufLen int
 	}{
 		{
-			name:        "positive_shutdown",
-			txExecutor:  &dbTxExecutor{},
-			model:       model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+			name: "positive_append",
+			items: []model.Metric{
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+			},
 			expectedLen: 1,
 			expectedErr: nil,
 		},
+		{
+			name: "positive_append",
+			items: []model.Metric{
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+			},
+			expectedLen: 2,
+			expectedErr: nil,
+		},
+		{
+			name: "positive_append",
+			items: []model.Metric{
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+			},
+			expectedLen: 3,
+			expectedErr: nil,
+		},
 	}
+
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			test.txExecutor.append(context.Background(), test.model, func(ctx context.Context, metrics []model.Metric) error {
-				return nil
-			})
-			if len(test.txExecutor.buf) != test.expectedLen {
+			txExecutor := &dbTxExecutor{}
+			for _, item := range test.items {
+				txExecutor.append(context.Background(), item, func(ctx context.Context, metrics []model.Metric) error {
+					return nil
+				})
+			}
+
+			if len(txExecutor.buf) != test.expectedLen {
 				t.Errorf(
-					"calling the shutdown method, the length of the inserted data got: %v, expected: %v",
-					len(test.txExecutor.buf), test.expectedLen)
+					"calling the append method, the length of the inserted data got: %v, expected: %v",
+					len(txExecutor.buf),
+					test.expectedLen,
+				)
 			}
 		})
 	}
@@ -135,6 +168,7 @@ func TestDbTxExecutorBulkAppend(t *testing.T) {
 			expectedErr:    nil,
 		},
 	}
+
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			length := 0
@@ -143,15 +177,21 @@ func TestDbTxExecutorBulkAppend(t *testing.T) {
 				length = len(metrics)
 				return nil
 			})
+
 			if length != test.expectedLen {
 				t.Errorf(
-					"calling the shutdown method, the length of the inserted data got: %v, expected: %v",
-					length, test.expectedLen)
+					"calling the bulkAppend method, the length of the inserted data got: %v, expected: %v",
+					length,
+					test.expectedLen,
+				)
 			}
+
 			if len(test.txExecutor.buf) != test.expectedBufLen {
 				t.Errorf(
-					"calling the shutdown method, the length of buffer got: %v, expected: %v",
-					len(test.txExecutor.buf), test.expectedBufLen)
+					"calling the bulkAppend method, the length of buffer got: %v, expected: %v",
+					len(test.txExecutor.buf),
+					test.expectedBufLen,
+				)
 			}
 		})
 	}
@@ -191,6 +231,7 @@ func TestDbTxExecutorShutdown(t *testing.T) {
 			expectedErr:    errors.New("test"),
 		},
 	}
+
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			length := 0
@@ -202,18 +243,25 @@ func TestDbTxExecutorShutdown(t *testing.T) {
 				}
 				return nil
 			})
+
 			if test.expectedErr == nil && err != nil {
 				t.Errorf("calling the shutdown method, err got: %v, expected: %v", err, test.expectedErr)
 			}
+
 			if length != test.expectedLen {
 				t.Errorf(
 					"calling the shutdown method, the length of the inserted data got: %v, expected: %v",
-					length, test.expectedLen)
+					length,
+					test.expectedLen,
+				)
 			}
+
 			if len(test.txExecutor.buf) != test.expectedBufLen {
 				t.Errorf(
 					"calling the shutdown method, the length of buffer got: %v, expected: %v",
-					len(test.txExecutor.buf), test.expectedBufLen)
+					len(test.txExecutor.buf),
+					test.expectedBufLen,
+				)
 			}
 		})
 	}
