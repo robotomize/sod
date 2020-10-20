@@ -165,7 +165,13 @@ func (d *manager) Run(ctx context.Context) error {
 	d.cancelNotifier = cancel
 	go d.collector(ctx)
 	go d.dbTxExecutor.flusher(ctx, d.metricDb.AppendMany)
-	go d.dbScheduler.schedule(ctx)
+	go d.dbScheduler.schedule(
+		ctx,
+		d.metricDb.Keys,
+		d.metricDb.CountByEntity,
+		d.metricDb.FindByEntity,
+		d.metricDb.DeleteMany,
+	)
 	if err := d.bulkLoad(ctx, d.metricDb.FindAll); err != nil {
 		return fmt.Errorf("can not start dispatcher manager: %v", err)
 	}

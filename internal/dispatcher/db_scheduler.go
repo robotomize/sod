@@ -88,29 +88,37 @@ func (s *dbScheduler) processOverSizeMetrics(
 
 // rebuildOutdated gets all keys of an entity and calls the data processing for each entity
 // Checks for outdated metrics for each entity
-func (s *dbScheduler) rebuildOutdated() error {
-	keys, err := s.metricDb.Keys()
+func (s *dbScheduler) rebuildOutdated(
+	keysFn fetchKeysFn,
+	fetchFn fetchMetricsByEntityFn,
+	deleteFn deleteMetricsFn,
+) error {
+	keys, err := keysFn()
 	if err != nil {
 		return fmt.Errorf("unable to fetch metric keys: %v", err)
 	}
 	for i := range keys {
-		if err := s.processOutdatedMetrics(keys[i], s.metricDb.FindByEntity, s.metricDb.DeleteMany); err != nil {
+		if err := s.processOutdatedMetrics(keys[i], fetchFn, deleteFn); err != nil {
 			return fmt.Errorf("unable process metrics: %v", err)
 		}
 	}
 	return nil
 }
 
+type fetchKeysFn func() ([]string, error)
+
+type countByEntityFn func(string) (int, error)
+
 // rebuildSize gets all keys of an entity and calls the data processing for each entity
 // calls a check for the number of elements in the DB for each entity
-func (s *dbScheduler) rebuildSize() error {
-	keys, err := s.metricDb.Keys()
+func (s *dbScheduler) rebuildSize(keysFn fetchKeysFn, countEntityFn countByEntityFn) error {
+	keys, err := keysFn()
 	if err != nil {
 		return fmt.Errorf("unable fetch keys: %v", err)
 	}
 	for i := range keys {
 		// getting the number of metrics for the entity
-		length, err := s.metricDb.CountByEntity(keys[i])
+		length, err := countEntityFn(keys[i])
 		if err != nil {
 			return fmt.Errorf("unable count by entity %s: %v", keys[i], err)
 		}
@@ -127,7 +135,13 @@ func (s *dbScheduler) rebuildSize() error {
 }
 
 // Scheduler for running data cleanup functions in the DB
-func (s *dbScheduler) schedule(ctx context.Context) {
+func (s *dbScheduler) schedule(
+	ctx context.Context,
+	keysFn fetchKeysFn,
+	countEntityFn countByEntityFn,
+	fetchFn fetchMetricsByEntityFn,
+	deleteFn deleteMetricsFn,
+) {
 	logger := logging.FromContext(ctx)
 	ticker := time.NewTicker(s.opts.rebuildDbTime)
 	defer ticker.Stop()
@@ -135,12 +149,12 @@ func (s *dbScheduler) schedule(ctx context.Context) {
 		select {
 		case <-ticker.C:
 			if s.opts.maxItemsStored > 0 {
-				if err := s.rebuildSize(); err != nil {
+				if err := s.rebuildSize(keysFn, countEntityFn); err != nil {
 					logger.Errorf("unable db rebuild size: %v", err)
 				}
 			}
 			if s.opts.maxStorageTime > 0 {
-				if err := s.rebuildOutdated(); err != nil {
+				if err := s.rebuildOutdated(keysFn, fetchFn, deleteFn); err != nil {
 					logger.Errorf("unable db rebuild outdated: %v", err)
 				}
 			}
