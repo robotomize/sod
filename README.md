@@ -111,6 +111,8 @@ response
 
 ### Health check
 
+you can check the viability
+
 ```bash
 curl -X GET http://localhost:8787/health
 ```
@@ -119,6 +121,18 @@ response
 ```json
 {"status":  "ok"}  
 ```
+
+### TODO
+* Implement tests
+* Add examples
+* request reformat
+* Add docs
+* ci/docker image
+* cli client
+* Another transport gateways
+* Try implement R tree/R*tree
+* DB abstraction layer
+* Web ui
 
 ### Documentation
 * [Installation](docs/installation.md)
