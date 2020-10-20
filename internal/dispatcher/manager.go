@@ -86,9 +86,11 @@ func New(
 	if notifier == nil {
 		return nil, fmt.Errorf("notifier instance is not created")
 	}
+
 	if providePredictorFn == nil {
 		return nil, fmt.Errorf("predictor instance is not created")
 	}
+
 	d := &manager{
 		metricDb:           metricDb.New(db),
 		collectCh:          make(chan model.Metric, 1),
@@ -102,13 +104,19 @@ func New(
 	for _, f := range opts {
 		f(d)
 	}
-	d.dbScheduler = newDBScheduler(db, dbSchedulerConfig{
+
+	d.dbScheduler = newDBScheduler(dbSchedulerConfig{
 		maxItemsStored: d.opts.maxItemsStored,
 		maxStorageTime: d.opts.maxStorageTime,
 		rebuildDbTime:  d.opts.rebuildDbTime,
 	})
+
 	d.dbTxExecutor = newTxExecutor(
-		db, dbTxExecutorOptions{dbFlushTime: d.opts.dbFlushTime, dbFlushSize: d.opts.dbFlushSize}, shutdownCh)
+		db,
+		dbTxExecutorOptions{dbFlushTime: d.opts.dbFlushTime, dbFlushSize: d.opts.dbFlushSize},
+		shutdownCh,
+	)
+
 	return d, nil
 }
 

@@ -89,7 +89,6 @@ func TestDbTxExecutorAppend(t *testing.T) {
 				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
 			},
 			expectedLen: 1,
-			expectedErr: nil,
 		},
 		{
 			name: "positive_append",
@@ -98,7 +97,6 @@ func TestDbTxExecutorAppend(t *testing.T) {
 				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
 			},
 			expectedLen: 2,
-			expectedErr: nil,
 		},
 		{
 			name: "positive_append",
@@ -108,7 +106,6 @@ func TestDbTxExecutorAppend(t *testing.T) {
 				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
 			},
 			expectedLen: 3,
-			expectedErr: nil,
 		},
 	}
 
@@ -142,7 +139,7 @@ func TestDbTxExecutorBulkAppend(t *testing.T) {
 		buf            []model.Metric
 	}{
 		{
-			name: "positive_shutdown",
+			name: "positive_bulk_append",
 			buf: []model.Metric{
 				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
 				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
@@ -155,7 +152,7 @@ func TestDbTxExecutorBulkAppend(t *testing.T) {
 			expectedErr:    nil,
 		},
 		{
-			name:           "negative_shutdown",
+			name:           "positive_bulk_append",
 			buf:            []model.Metric{},
 			expectedLen:    0,
 			expectedBufLen: 0,
@@ -230,10 +227,8 @@ func TestDbTxExecutorShutdown(t *testing.T) {
 			txExecutor.buf = test.buf
 			err := txExecutor.shutdown(func(ctx context.Context, metrics []model.Metric) error {
 				length = len(metrics)
-				if test.expectedErr != nil {
-					return test.expectedErr
-				}
-				return nil
+
+				return test.expectedErr
 			})
 
 			if test.expectedErr == nil && err != nil {
@@ -248,7 +243,7 @@ func TestDbTxExecutorShutdown(t *testing.T) {
 				)
 			}
 
-			if len(txExecutor.buf) != test.expectedBufLen {
+			if err == nil && len(txExecutor.buf) != test.expectedBufLen {
 				t.Errorf(
 					"calling the shutdown method, the length of buffer got: %v, expected: %v",
 					len(txExecutor.buf),

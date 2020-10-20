@@ -10,14 +10,245 @@ import (
 	"time"
 )
 
+func TestRebuildSize(t *testing.T) {
+	tests := []struct {
+		name              string
+		maxItemsStored    int
+		expectedKeysErr   error
+		expectedCountErr  error
+		expectedFetchErr  error
+		expectedDeleteErr error
+		expectedLen       int
+		batch             []model.Metric
+	}{
+		{
+			name:           "positive_rebuild_size",
+			maxItemsStored: 3,
+			batch: []model.Metric{
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+			},
+			expectedLen: 3,
+		},
+		{
+			name:           "positive_rebuild_size",
+			maxItemsStored: 1,
+			batch: []model.Metric{
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+			},
+			expectedLen: 1,
+		},
+		{
+			name:           "negative_rebuild_size",
+			maxItemsStored: 1,
+			batch: []model.Metric{
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+			},
+			expectedLen:     1,
+			expectedKeysErr: errors.New("test error"),
+		},
+		{
+			name:           "negative_rebuild_size",
+			maxItemsStored: 1,
+			batch: []model.Metric{
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+			},
+			expectedLen:      1,
+			expectedCountErr: errors.New("test error"),
+		},
+		{
+			name:           "negative_rebuild_size",
+			maxItemsStored: 1,
+			batch: []model.Metric{
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+			},
+			expectedLen:      1,
+			expectedFetchErr: errors.New("test error"),
+		},
+		{
+			name:           "negative_rebuild_size",
+			maxItemsStored: 1,
+			batch: []model.Metric{
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+			},
+			expectedLen:       1,
+			expectedDeleteErr: errors.New("test error"),
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			scheduler := &dbScheduler{opts: dbSchedulerConfig{maxItemsStored: test.maxItemsStored}}
+			err := scheduler.rebuildSize(
+				func() ([]string, error) {
+					return []string{"test-entity"}, test.expectedKeysErr
+				},
+				func(s string) (int, error) {
+					return len(test.batch), test.expectedCountErr
+				},
+				func(s string, fn metricDb.FilterFn) ([]model.Metric, error) {
+					return test.batch, test.expectedFetchErr
+				},
+				func(ctx context.Context, metrics []model.Metric) error {
+					test.batch = test.batch[0:test.maxItemsStored]
+					return test.expectedDeleteErr
+				},
+			)
+			if test.expectedKeysErr != nil && err == nil {
+				t.Errorf(
+					"calling the TestRebuildSize method, the length of data got: %v, expected: %v",
+					err,
+					test.expectedKeysErr,
+				)
+			}
+			if err == nil && len(test.batch) != test.expectedLen {
+				t.Errorf(
+					"calling the TestRebuildSize method, the length of data got: %v, expected: %v",
+					len(test.batch),
+					test.expectedLen,
+				)
+			}
+		})
+	}
+}
+
 func TestRebuildOutdated(t *testing.T) {
 	tests := []struct {
-		name           string
-		maxItemsStored int
-		expectedErr    error
-		expectedLen    int
-		batch          []model.Metric
-		size           int
+		name              string
+		maxItemsStored    int
+		expectedKeysErr   error
+		expectedFetchErr  error
+		expectedDeleteErr error
+		expectedLen       int
+		batch             []model.Metric
+	}{
+		{
+			name:           "positive_rebuild_outdated",
+			maxItemsStored: 3,
+			batch: []model.Metric{
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+			},
+			expectedLen: 3,
+		},
+		{
+			name:           "positive_rebuild_outdated",
+			maxItemsStored: 1,
+			batch: []model.Metric{
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+			},
+			expectedLen: 1,
+		},
+		{
+			name:           "positive_rebuild_outdated",
+			maxItemsStored: 1,
+			batch: []model.Metric{
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+			},
+			expectedLen:     1,
+			expectedKeysErr: errors.New("test error"),
+		},
+		{
+			name:           "positive_rebuild_outdated",
+			maxItemsStored: 1,
+			batch: []model.Metric{
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+			},
+			expectedLen:       1,
+			expectedDeleteErr: errors.New("test error"),
+		},
+		{
+			name:           "positive_rebuild_outdated",
+			maxItemsStored: 1,
+			batch: []model.Metric{
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+			},
+			expectedLen:      1,
+			expectedFetchErr: errors.New("test error"),
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			scheduler := &dbScheduler{opts: dbSchedulerConfig{maxItemsStored: test.maxItemsStored}}
+			err := scheduler.rebuildOutdated(
+				func() ([]string, error) {
+					return []string{"test-metrics"}, nil
+				},
+				func(s string, fn metricDb.FilterFn) ([]model.Metric, error) {
+					return test.batch, test.expectedKeysErr
+				},
+				func(ctx context.Context, metrics []model.Metric) error {
+					test.batch = test.batch[0:test.maxItemsStored]
+					return test.expectedKeysErr
+				},
+			)
+			if test.expectedKeysErr != nil && err == nil {
+				t.Errorf(
+					"calling the rebuildOutdated method, the length of data got: %v, expected: %v",
+					err,
+					test.expectedKeysErr,
+				)
+			}
+			if err == nil && len(test.batch) != test.expectedLen {
+				t.Errorf(
+					"calling the rebuildOutdated method, the length of data got: %v, expected: %v",
+					len(test.batch),
+					test.expectedLen,
+				)
+			}
+		})
+	}
+}
+
+func TestProcessOverSizeMetrics(t *testing.T) {
+	tests := []struct {
+		name              string
+		maxItemsStored    int
+		expectedFetchErr  error
+		expectedDeleteErr error
+		expectedLen       int
+		batch             []model.Metric
 	}{
 		{
 			name:           "positive_process_over_size_metrics",
@@ -30,11 +261,10 @@ func TestRebuildOutdated(t *testing.T) {
 				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
 			},
 			expectedLen: 3,
-			expectedErr: nil,
 		},
 		{
-			name:           "negative_process_over_size_metrics",
-			maxItemsStored: 3,
+			name:           "positive_process_over_size_metrics",
+			maxItemsStored: 1,
 			batch: []model.Metric{
 				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
 				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
@@ -42,30 +272,53 @@ func TestRebuildOutdated(t *testing.T) {
 				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
 				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
 			},
-			expectedLen: 3,
-			expectedErr: errors.New("test error"),
+			expectedLen: 1,
+		},
+		{
+			name:           "negative_process_over_size_metrics",
+			maxItemsStored: 1,
+			batch: []model.Metric{
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+			},
+			expectedLen:      1,
+			expectedFetchErr: errors.New("test error"),
+		},
+		{
+			name:           "negative_process_over_size_metrics",
+			maxItemsStored: 1,
+			batch: []model.Metric{
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
+			},
+			expectedLen:       1,
+			expectedDeleteErr: errors.New("test error"),
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			scheduler := &dbScheduler{opts: dbSchedulerConfig{maxItemsStored: test.maxItemsStored}}
-			err := scheduler.rebuildOutdated(
-				func() ([]string, error) {
-					return []string{"test-metrics"}, nil
-				},
+			err := scheduler.processOverSizeMetrics(
+				"test-metrics",
 				func(s string, fn metricDb.FilterFn) ([]model.Metric, error) {
-					return test.batch, test.expectedErr
+					return test.batch, test.expectedFetchErr
 				},
 				func(ctx context.Context, metrics []model.Metric) error {
 					test.batch = test.batch[0:test.maxItemsStored]
-					return test.expectedErr
+					return test.expectedFetchErr
 				},
 			)
-			if test.expectedErr != nil && err == nil {
+			if test.expectedFetchErr != nil && err == nil {
 				t.Errorf(
-					"calling the rebuildOutdated method, the length of data got: %v, expected: %v",
+					"calling the processOverSizeMetrics method, the length of data got: %v, expected: %v",
 					err,
-					test.expectedErr,
+					test.expectedFetchErr,
 				)
 			}
 			if err == nil && len(test.batch) != test.expectedLen {
@@ -79,69 +332,54 @@ func TestRebuildOutdated(t *testing.T) {
 	}
 }
 
-func TestProcessOverSizeMetrics(t *testing.T) {
+// @TODO add logger test
+func TestSchedule(t *testing.T) {
 	tests := []struct {
-		name           string
-		maxItemsStored int
-		expectedErr    error
-		expectedLen    int
-		batch          []model.Metric
-		size           int
+		name               string
+		optsMaxItemsStored int
+		optsMaxStorageTime time.Duration
 	}{
 		{
-			name:           "positive_process_over_size_metrics",
-			maxItemsStored: 3,
-			batch: []model.Metric{
-				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
-				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
-				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
-				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
-				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
-			},
-			expectedLen: 3,
-			expectedErr: nil,
+			name:               "positive_schedule_max_items",
+			optsMaxItemsStored: 1,
 		},
 		{
-			name:           "negative_process_over_size_metrics",
-			maxItemsStored: 3,
-			batch: []model.Metric{
-				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
-				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
-				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
-				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
-				model.NewMetric("test-data", geom.Point{1, 1, 1, 1}, time.Now(), "test"),
-			},
-			expectedLen: 3,
-			expectedErr: errors.New("test error"),
+			name:               "negative_schedule_max_items",
+			optsMaxItemsStored: 0,
+		},
+		{
+			name:               "positive_schedule_max_storage_time",
+			optsMaxStorageTime: 1 * time.Second,
+		},
+		{
+			name:               "negative_schedule_max_storage_time",
+			optsMaxStorageTime: 0,
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			scheduler := &dbScheduler{opts: dbSchedulerConfig{maxItemsStored: test.maxItemsStored}}
-			err := scheduler.processOverSizeMetrics(
-				"test-metrics",
+			scheduler := &dbScheduler{opts: dbSchedulerConfig{
+				maxItemsStored: test.optsMaxItemsStored,
+				maxStorageTime: test.optsMaxStorageTime,
+				rebuildDbTime:  100 * time.Millisecond,
+			}}
+			ctx, cancel := context.WithTimeout(context.Background(), scheduler.opts.rebuildDbTime*2)
+			defer cancel()
+			scheduler.schedule(
+				ctx,
+				func() ([]string, error) {
+					return []string{"test-entity"}, nil
+				},
+				func(s string) (int, error) {
+					return 1, nil
+				},
 				func(s string, fn metricDb.FilterFn) ([]model.Metric, error) {
-					return test.batch, test.expectedErr
+					return []model.Metric{}, nil
 				},
 				func(ctx context.Context, metrics []model.Metric) error {
-					test.batch = test.batch[0:test.maxItemsStored]
-					return test.expectedErr
+					return nil
 				},
 			)
-			if test.expectedErr != nil && err == nil {
-				t.Errorf(
-					"calling the processOverSizeMetrics method, the length of data got: %v, expected: %v",
-					err,
-					test.expectedErr,
-				)
-			}
-			if err == nil && len(test.batch) != test.expectedLen {
-				t.Errorf(
-					"calling the processOverSizeMetrics method, the length of data got: %v, expected: %v",
-					len(test.batch),
-					test.expectedLen,
-				)
-			}
 		})
 	}
 }

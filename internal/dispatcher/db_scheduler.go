@@ -3,7 +3,6 @@ package dispatcher
 import (
 	"context"
 	"fmt"
-	"sod/internal/database"
 	"sod/internal/logging"
 	metricDb "sod/internal/metric/database"
 	"sod/internal/metric/model"
@@ -18,15 +17,14 @@ type dbSchedulerConfig struct {
 	rebuildDbTime  time.Duration
 }
 
-func newDBScheduler(db *database.DB, config dbSchedulerConfig) *dbScheduler {
-	return &dbScheduler{metricDb: metricDb.New(db), opts: config}
+func newDBScheduler(config dbSchedulerConfig) *dbScheduler {
+	return &dbScheduler{opts: config}
 }
 
 // The scheduler is responsible for deleting old data from the DB
 // It can maintain the required amount of data in the DB or delete old data depending on the configuration.
 type dbScheduler struct {
-	opts     dbSchedulerConfig
-	metricDb *metricDb.DB
+	opts dbSchedulerConfig
 }
 
 //  abstraction layer for defining a group of metrics
@@ -111,7 +109,12 @@ type countByEntityFn func(string) (int, error)
 
 // rebuildSize gets all keys of an entity and calls the data processing for each entity
 // calls a check for the number of elements in the DB for each entity
-func (s *dbScheduler) rebuildSize(keysFn fetchKeysFn, countEntityFn countByEntityFn) error {
+func (s *dbScheduler) rebuildSize(
+	keysFn fetchKeysFn,
+	countEntityFn countByEntityFn,
+	fetchFn fetchMetricsByEntityFn,
+	deleteFn deleteMetricsFn,
+) error {
 	keys, err := keysFn()
 	if err != nil {
 		return fmt.Errorf("unable fetch keys: %v", err)
@@ -125,7 +128,7 @@ func (s *dbScheduler) rebuildSize(keysFn fetchKeysFn, countEntityFn countByEntit
 		// If the number of elements in the entity is greater than the one specified in the configuration,
 		//t hen run the processOverSizeMetrics
 		if length > s.opts.maxItemsStored {
-			if err := s.processOverSizeMetrics(keys[i], s.metricDb.FindByEntity, s.metricDb.DeleteMany); err != nil {
+			if err := s.processOverSizeMetrics(keys[i], fetchFn, deleteFn); err != nil {
 				return fmt.Errorf("unable process metrics: %v", err)
 			}
 		}
@@ -143,13 +146,16 @@ func (s *dbScheduler) schedule(
 	deleteFn deleteMetricsFn,
 ) {
 	logger := logging.FromContext(ctx)
+	if s.opts.rebuildDbTime == 0 {
+		s.opts.rebuildDbTime = 1 * time.Second
+	}
 	ticker := time.NewTicker(s.opts.rebuildDbTime)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
 			if s.opts.maxItemsStored > 0 {
-				if err := s.rebuildSize(keysFn, countEntityFn); err != nil {
+				if err := s.rebuildSize(keysFn, countEntityFn, fetchFn, deleteFn); err != nil {
 					logger.Errorf("unable db rebuild size: %v", err)
 				}
 			}
