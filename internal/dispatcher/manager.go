@@ -220,6 +220,7 @@ func (d *manager) Predict(entityID string, data predictor.DataPoint) (*predictor
 		predictorFn = newPredictor
 		d.predictors[entityID] = newPredictor
 	}
+
 	d.mtx.Unlock()
 	result, err := predictorFn.Predict(data.Point())
 	if err != nil {
@@ -251,9 +252,11 @@ func (d *manager) shutdown(ctx context.Context, q *iqueue.Queue) error {
 			d.cancelNotifier()
 			break
 		}
+
 		if err := d.process(ctx, front.Value.(model.Metric), d.metricDb.Delete); err != nil {
 			return fmt.Errorf("dispatcher shutdown: unable processed data: %v", err)
 		}
+
 		q.Queue().Remove(front)
 	}
 	return nil
@@ -266,6 +269,7 @@ func (d *manager) recvShutdown() bool {
 			finishedNum += 1
 		}
 	}
+
 	return finishedNum == predictorsNum
 }
 
@@ -308,6 +312,7 @@ func (d *manager) bulkLoad(ctx context.Context, fetchAllMetricsFn fetchAllMetric
 	for i := range newMetrics {
 		d.collectCh <- newMetrics[i]
 	}
+
 	return nil
 }
 
@@ -318,6 +323,7 @@ func (d *manager) process(ctx context.Context, metric model.Metric, deleteFn del
 	d.mtx.RLock()
 	entityPredictor, ok := d.predictors[metric.EntityID]
 	d.mtx.RUnlock()
+
 	if !ok {
 		newPredictor, err := d.predictorProvideFn()
 		if err != nil {
@@ -388,6 +394,7 @@ func (d *manager) receive(ctx context.Context, q *iqueue.Queue) {
 	defer func() {
 		d.shutDownCh <- d.shutdown(ctx, q)
 	}()
+
 	for {
 		select {
 		case recv := <-q.Receive():

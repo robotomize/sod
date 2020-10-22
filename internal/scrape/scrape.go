@@ -20,6 +20,20 @@ import (
 	"time"
 )
 
+type response struct {
+	EntityID string `json:"entity"`
+	Data     []struct {
+		Vec       []float64   `json:"vector"`
+		Extra     interface{} `json:"extra"`
+		CreatedAt time.Time   `json:"createdAt"`
+	} `json:"data"`
+}
+
+type Manager interface {
+	Run(context.Context) error
+	Stop()
+}
+
 type ProvideFn = func(dispatcher.Manager, chan<- error) (Manager, error)
 
 const UserAgent = "SOD/0.1"
@@ -71,20 +85,6 @@ func New(outlier dispatcher.Manager, shutdownCh chan<- error, opts ...Option) (*
 		},
 	}
 	return m, nil
-}
-
-type response struct {
-	EntityID string `json:"entityId"`
-	Data     []struct {
-		Vec       []float64   `json:"vec"`
-		Extra     interface{} `json:"extra"`
-		CreatedAt time.Time   `json:"createdAt"`
-	} `json:"data"`
-}
-
-type Manager interface {
-	Run(context.Context) error
-	Stop()
 }
 
 type manager struct {

@@ -157,7 +157,11 @@ func ProvideNotifierFor(provider NotifierConfigProvider, db *database.DB) (alert
 	}, nil
 }
 
-func ProvideOutlierFor(provider OutlierConfigProvider, providePredictFn predictor.ProvideFn, db *database.DB) (dispatcher.ProvideFn, error) {
+func ProvideOutlierFor(
+	provider OutlierConfigProvider,
+	providePredictFn predictor.ProvideFn,
+	db *database.DB,
+) (dispatcher.ProvideFn, error) {
 	cfg := provider.OutlierConfig()
 	if err := envconfig.Process("", cfg); err != nil {
 		return nil, fmt.Errorf("dont process dispatcher env: %w", err)
