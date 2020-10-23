@@ -17,7 +17,8 @@ type dbSchedulerConfig struct {
 	rebuildDbTime  time.Duration
 }
 
-func newDBScheduler(config dbSchedulerConfig) *dbScheduler {
+// return *dbScheduler with dbSchedulerConfig options
+func newDbScheduler(config dbSchedulerConfig) *dbScheduler {
 	return &dbScheduler{opts: config}
 }
 
@@ -27,10 +28,10 @@ type dbScheduler struct {
 	opts dbSchedulerConfig
 }
 
-//  abstraction layer for defining a group of metrics
+// Abstraction layer for defining a group of metrics
 type deleteMetricsFn func(context.Context, []model.Metric) error
 
-// abstraction level for fetching metrics by entity id
+// Abstraction level for fetching metrics by entity id
 type fetchMetricsByEntityFn func(string, metricDb.FilterFn) ([]model.Metric, error)
 
 // @TODO not optimal for memory usage
@@ -146,19 +147,26 @@ func (s *dbScheduler) schedule(
 	deleteFn deleteMetricsFn,
 ) {
 	logger := logging.FromContext(ctx)
+	// determining the time of data verification
 	if s.opts.rebuildDbTime == 0 {
-		s.opts.rebuildDbTime = 1 * time.Second
+		s.opts.rebuildDbTime = 5 * time.Second
 	}
+
 	ticker := time.NewTicker(s.opts.rebuildDbTime)
 	defer ticker.Stop()
+
 	for {
 		select {
 		case <-ticker.C:
+			// if the configuration specifies the maximum size of data to store
+			// then you need to check the amount of data stored in the storage.
 			if s.opts.maxItemsStored > 0 {
 				if err := s.rebuildSize(keysFn, countEntityFn, fetchFn, deleteFn); err != nil {
 					logger.Errorf("unable db rebuild size: %v", err)
 				}
 			}
+			// if the configuration specifies the maximum data storage time
+			// then you need to check the time when metrics were created in the storage.
 			if s.opts.maxStorageTime > 0 {
 				if err := s.rebuildOutdated(keysFn, fetchFn, deleteFn); err != nil {
 					logger.Errorf("unable db rebuild outdated: %v", err)

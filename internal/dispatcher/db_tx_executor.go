@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-func newTxExecutor(db *database.DB, opts dbTxExecutorOptions, shutdownCh chan<- error) *dbTxExecutor {
+func newDbTxExecutor(db *database.DB, opts dbTxExecutorOptions, shutdownCh chan<- error) *dbTxExecutor {
 	return &dbTxExecutor{metricDb: metricDb.New(db), opts: opts, shutdownCh: shutdownCh}
 }
 
@@ -33,7 +33,7 @@ type dbTxExecutor struct {
 	shutdownCh chan<- error
 }
 
-// shutdown  Urgently inserts all data from the buffer into persistent storage or returns an error
+// Urgently inserts all data from the buffer into persistent storage or returns an error
 func (tx *dbTxExecutor) shutdown(fn appendMetricsFn) error {
 	tx.mtx.Lock()
 	if err := fn(context.Background(), tx.buf); err != nil {
@@ -44,7 +44,7 @@ func (tx *dbTxExecutor) shutdown(fn appendMetricsFn) error {
 	return nil
 }
 
-// append This is the main method for adding data. It adds data to the buffer.
+// This is the main method for adding data. It adds data to the buffer.
 // If the buffer is full, it calls the bulkAppend method
 func (tx *dbTxExecutor) append(ctx context.Context, data model.Metric, fn appendMetricsFn) {
 	tx.mtx.Lock()
@@ -61,10 +61,10 @@ func (tx *dbTxExecutor) append(ctx context.Context, data model.Metric, fn append
 	}
 }
 
-// abstraction layer for adding a group of metrics
+// Abstraction layer for adding a group of metrics
 type appendMetricsFn func(context.Context, []model.Metric) error
 
-// bulkAppend bulk adds data to persistent storage and clears the buffer
+// Bulk adds data to persistent storage and clears the buffer
 func (tx *dbTxExecutor) bulkAppend(ctx context.Context, fn appendMetricsFn) {
 	logger := logging.FromContext(ctx)
 

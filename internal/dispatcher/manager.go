@@ -76,6 +76,7 @@ func WithAllowAppendOutlier(t bool) Option {
 	}
 }
 
+// New return constructor for the Manager structure.
 func New(
 	db *database.DB,
 	providePredictorFn predictor.ProvideFn,
@@ -101,46 +102,64 @@ func New(
 		normVectors:        map[string][]float64{},
 		notifier:           notifier,
 	}
+
 	for _, f := range opts {
 		f(d)
 	}
 
-	d.dbScheduler = newDBScheduler(dbSchedulerConfig{
+	// Creating a new instance of newDbScheduler.
+	d.dbScheduler = newDbScheduler(dbSchedulerConfig{
 		maxItemsStored: d.opts.maxItemsStored,
 		maxStorageTime: d.opts.maxStorageTime,
 		rebuildDbTime:  d.opts.rebuildDbTime,
 	})
 
-	d.dbTxExecutor = newTxExecutor(
+	// Creates a new instance of dbTxExecutor
+	d.dbTxExecutor = newDbTxExecutor(
 		db,
-		dbTxExecutorOptions{dbFlushTime: d.opts.dbFlushTime, dbFlushSize: d.opts.dbFlushSize},
+		dbTxExecutorOptions{
+			dbFlushTime: d.opts.dbFlushTime,
+			dbFlushSize: d.opts.dbFlushSize,
+		},
 		shutdownCh,
 	)
 
 	return d, nil
 }
 
+// Contract for returning the Manager instance
 type ProvideFn func(alert.Manager, chan<- error) (Manager, error)
 
+// The interface defines the behavior of the Manager instance with all available methods.
+// This interface defines the behavior of the background service.
 type Manager interface {
 	CollectPredictor
+	// Start method of the service
 	Run(context.Context) error
+	// Method for stopping the service
 	Stop()
 }
 
+// Collector defines the behavior of the service for data storage and analysis
 type Collector interface {
+	// The method accepts data from outside and writes it to the queue
 	Collect(in ...model.Metric) error
 }
 
+// The interface defines the behavior of the service only for predictions
 type Predictor interface {
+	// The method determines whether the data is an outlier
 	Predict(entityID string, in predictor.DataPoint) (*predictor.Conclusion, error)
 }
 
+// Aggregation interface for Collector and Predictor interfaces
 type CollectPredictor interface {
 	Collector
 	Predictor
 }
 
+// The main structure of SOD.
+// Describes the queue management structure, calls outlier notification functions, and stores data predictors.
 type manager struct {
 	mtx sync.RWMutex
 
