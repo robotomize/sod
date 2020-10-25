@@ -38,19 +38,25 @@ func TestDbxExecutorFlusher(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			txExecutor := &dbTxExecutor{opts: dbTxExecutorOptions{dbFlushTime: 1 * time.Second}}
 			length := 0
 			bit := int64(0)
+			txExecutor := &dbTxExecutor{opts: dbTxExecutorOptions{dbFlushTime: 1 * time.Second}}
+			deps := pullDependencies{
+				appendMetricsFn: func(ctx context.Context, metrics []model.Metric) error {
+					if atomic.LoadInt64(&bit) == 0 {
+						length = len(metrics)
+						atomic.StoreInt64(&bit, 1)
+					}
+
+					return nil
+				},
+				fetchKeys:     nil,
+				countByEntity: nil,
+			}
+
 			ctx, cancel := context.WithCancel(context.TODO())
 			txExecutor.buf = test.batch
-			go txExecutor.flusher(ctx, func(ctx context.Context, metrics []model.Metric) error {
-				if atomic.LoadInt64(&bit) == 0 {
-					length = len(metrics)
-					atomic.StoreInt64(&bit, 1)
-				}
-
-				return nil
-			})
+			go txExecutor.flusher(ctx, deps)
 
 			time.Sleep(test.waitingTime * 2)
 			cancel()
@@ -111,11 +117,15 @@ func TestDbTxExecutorAppend(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			txExecutor := &dbTxExecutor{}
-			for _, item := range test.items {
-				txExecutor.append(context.Background(), item, func(ctx context.Context, metrics []model.Metric) error {
+			deps := pullDependencies{
+				appendMetricsFn: func(ctx context.Context, metrics []model.Metric) error {
 					return nil
-				})
+				},
+			}
+			txExecutor := &dbTxExecutor{}
+
+			for _, item := range test.items {
+				txExecutor.append(context.Background(), item, deps)
 			}
 
 			if len(txExecutor.buf) != test.expectedLen {
@@ -165,10 +175,14 @@ func TestDbTxExecutorBulkAppend(t *testing.T) {
 			txExecutor := &dbTxExecutor{}
 			length := 0
 			txExecutor.buf = test.buf
-			txExecutor.bulkAppend(context.Background(), func(ctx context.Context, metrics []model.Metric) error {
-				length = len(metrics)
-				return nil
-			})
+			deps := pullDependencies{
+				appendMetricsFn: func(ctx context.Context, metrics []model.Metric) error {
+					length = len(metrics)
+					return nil
+				},
+			}
+
+			txExecutor.bulkAppend(context.Background(), deps)
 
 			if length != test.expectedLen {
 				t.Errorf(
@@ -225,11 +239,14 @@ func TestDbTxExecutorShutdown(t *testing.T) {
 			length := 0
 			txExecutor := &dbTxExecutor{}
 			txExecutor.buf = test.buf
-			err := txExecutor.shutdown(func(ctx context.Context, metrics []model.Metric) error {
-				length = len(metrics)
+			deps := pullDependencies{
+				appendMetricsFn: func(ctx context.Context, metrics []model.Metric) error {
+					length = len(metrics)
 
-				return test.expectedErr
-			})
+					return test.expectedErr
+				},
+			}
+			err := txExecutor.shutdown(deps)
 
 			if test.expectedErr == nil && err != nil {
 				t.Errorf("calling the shutdown method, err got: %v, expected: %v", err, test.expectedErr)

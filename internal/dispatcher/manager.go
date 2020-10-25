@@ -158,6 +158,28 @@ type CollectPredictor interface {
 	Predictor
 }
 
+// Abstractions for getting dependencies
+type (
+	fetchMetricsFn         func(context.Context, metricDb.FilterFn) ([]model.Metric, error)
+	fetchMetricsByEntityFn func(string, metricDb.FilterFn) ([]model.Metric, error)
+	deleteMetricFn         func(context.Context, model.Metric) error
+	deleteMetricsFn        func(context.Context, []model.Metric) error
+	appendMetricsFn        func(context.Context, []model.Metric) error
+	fetchKeysFn            func() ([]string, error)
+	countByEntityFn        func(string) (int, error)
+)
+
+//  General structure for aggregation of dependency pulling functions
+type pullDependencies struct {
+	fetchMetrics         fetchMetricsFn
+	fetchMetricsByEntity fetchMetricsByEntityFn
+	deleteMetric         deleteMetricFn
+	deleteMetricsFn      deleteMetricsFn
+	appendMetricsFn      appendMetricsFn
+	fetchKeys            fetchKeysFn
+	countByEntity        countByEntityFn
+}
+
 // The main structure of SOD.
 // Describes the queue management structure, calls outlier notification functions, and stores data predictors.
 type manager struct {
@@ -190,36 +212,34 @@ func (d *manager) Run(ctx context.Context) error {
 	d.cancel = cancel
 	c, cancel := context.WithCancel(context.Background())
 	d.cancelNotifier = cancel
-	go d.collector(ctx)
-	go d.dbTxExecutor.flusher(ctx, d.metricDb.AppendMany)
-	go d.dbScheduler.schedule(
-		ctx,
-		d.metricDb.Keys,
-		d.metricDb.CountByEntity,
-		d.metricDb.FindByEntity,
-		d.metricDb.DeleteMany,
-	)
-	if err := d.bulkLoad(ctx, d.metricDb.FindAll); err != nil {
+
+	deps := pullDependencies{
+		fetchMetrics:         d.metricDb.FindAll,
+		fetchMetricsByEntity: d.metricDb.FindByEntity,
+		deleteMetric:         d.metricDb.Delete,
+		deleteMetricsFn:      d.metricDb.DeleteMany,
+		appendMetricsFn:      d.metricDb.AppendMany,
+		fetchKeys:            d.metricDb.Keys,
+		countByEntity:        d.metricDb.CountByEntity,
+	}
+
+	go d.collector(ctx, deps)
+	go d.dbTxExecutor.flusher(ctx, deps)
+	go d.dbScheduler.schedule(ctx, deps)
+
+	if err := d.bulkLoad(ctx, deps); err != nil {
 		return fmt.Errorf("can not start dispatcher manager: %v", err)
 	}
+
 	if err := d.notifier.Run(c); err != nil {
 		return fmt.Errorf("alert.Run: %w", err)
 	}
+
 	return nil
 }
 
 func (d *manager) Stop() {
 	d.cancel()
-}
-
-func (d *manager) alert(in ...model.Metric) {
-	d.mtx.RLock()
-	if !d.closed {
-		d.mtx.RUnlock()
-		d.notifier.Notify(in...)
-		return
-	}
-	d.mtx.RUnlock()
 }
 
 func (d *manager) Predict(entityID string, data predictor.DataPoint) (*predictor.Conclusion, error) {
@@ -261,43 +281,10 @@ func (d *manager) Collect(data ...model.Metric) error {
 	return nil
 }
 
-func (d *manager) shutdown(ctx context.Context, q *iqueue.Queue) error {
-	for {
-		front := q.Queue().Front()
-		if front == nil {
-			if !d.recvShutdown() {
-				return fmt.Errorf("dispatcher shutdown: closed num receivers not equal created")
-			}
-			d.cancelNotifier()
-			break
-		}
-
-		if err := d.process(ctx, front.Value.(model.Metric), d.metricDb.Delete); err != nil {
-			return fmt.Errorf("dispatcher shutdown: unable processed data: %v", err)
-		}
-
-		q.Queue().Remove(front)
-	}
-	return nil
-}
-
-func (d *manager) recvShutdown() bool {
-	finishedNum, predictorsNum := 0, len(d.queue)
-	for _, q := range d.queue {
-		if q.Queue().Len() == 0 {
-			finishedNum += 1
-		}
-	}
-
-	return finishedNum == predictorsNum
-}
-
-type fetchAllMetricsFn func(context.Context, metricDb.FilterFn) ([]model.Metric, error)
-
-func (d *manager) bulkLoad(ctx context.Context, fetchAllMetricsFn fetchAllMetricsFn) error {
+func (d *manager) bulkLoad(ctx context.Context, deps pullDependencies) error {
 	var newMetrics []model.Metric
 
-	data, err := fetchAllMetricsFn(ctx, nil)
+	data, err := deps.fetchMetrics(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("error fetching all metrics: %v", err)
 	}
@@ -335,9 +322,7 @@ func (d *manager) bulkLoad(ctx context.Context, fetchAllMetricsFn fetchAllMetric
 	return nil
 }
 
-type deleteMetricFn func(context.Context, model.Metric) error
-
-func (d *manager) process(ctx context.Context, metric model.Metric, deleteFn deleteMetricFn) error {
+func (d *manager) process(ctx context.Context, metric model.Metric, deps pullDependencies) error {
 	logger := logging.FromContext(ctx)
 	d.mtx.RLock()
 	entityPredictor, ok := d.predictors[metric.EntityID]
@@ -357,18 +342,18 @@ func (d *manager) process(ctx context.Context, metric model.Metric, deleteFn del
 
 	if entityPredictor.Len() < d.opts.skipItems || entityPredictor.Len() < 3 {
 		metric.Status = model.StatusProcessed
-		d.dbTxExecutor.append(ctx, metric, d.metricDb.AppendMany)
+		d.dbTxExecutor.append(ctx, metric, deps)
 		entityPredictor.Append(&metric)
 		return nil
 	}
 
 	metric.Status = model.StatusNew
 
-	d.dbTxExecutor.append(ctx, metric, d.metricDb.AppendMany)
+	d.dbTxExecutor.append(ctx, metric, deps)
 
 	result, predictErr := entityPredictor.Predict(metric.Point())
 	if predictErr != nil {
-		if err := deleteFn(context.Background(), metric); err != nil {
+		if err := deps.deleteMetric(context.Background(), metric); err != nil {
 			return fmt.Errorf("unable predict: %v", fmt.Errorf("metric delete error %s: %v", metric.EntityID, err))
 		}
 		return fmt.Errorf("unable predict: %v", predictErr)
@@ -391,7 +376,7 @@ func (d *manager) process(ctx context.Context, metric model.Metric, deleteFn del
 	}
 
 	if !d.opts.allowAppendData {
-		if err := deleteFn(ctx, metric); err != nil {
+		if err := deps.deleteMetric(ctx, metric); err != nil {
 			return fmt.Errorf("delete transaction error: %v", err)
 		}
 		return nil
@@ -403,21 +388,62 @@ func (d *manager) process(ctx context.Context, metric model.Metric, deleteFn del
 
 	metric.Status = model.StatusProcessed
 
-	d.dbTxExecutor.append(ctx, metric, d.metricDb.AppendMany)
+	d.dbTxExecutor.append(ctx, metric, deps)
 
 	return nil
 }
 
-func (d *manager) receive(ctx context.Context, q *iqueue.Queue) {
+func (d *manager) alert(in ...model.Metric) {
+	d.mtx.RLock()
+	if !d.closed {
+		d.mtx.RUnlock()
+		d.notifier.Notify(in...)
+		return
+	}
+	d.mtx.RUnlock()
+}
+
+func (d *manager) shutdown(ctx context.Context, q *iqueue.Queue, deps pullDependencies) error {
+	for {
+		front := q.Queue().Front()
+		if front == nil {
+			if !d.recvShutdown() {
+				return fmt.Errorf("dispatcher shutdown: closed num receivers not equal created")
+			}
+			d.cancelNotifier()
+			break
+		}
+
+		if err := d.process(ctx, front.Value.(model.Metric), deps); err != nil {
+			return fmt.Errorf("dispatcher shutdown: unable processed data: %v", err)
+		}
+
+		q.Queue().Remove(front)
+	}
+	return nil
+}
+
+func (d *manager) recvShutdown() bool {
+	finishedNum, predictorsNum := 0, len(d.queue)
+	for _, q := range d.queue {
+		if q.Queue().Len() == 0 {
+			finishedNum += 1
+		}
+	}
+
+	return finishedNum == predictorsNum
+}
+
+func (d *manager) receive(ctx context.Context, q *iqueue.Queue, deps pullDependencies) {
 	logger := logging.FromContext(ctx)
 	defer func() {
-		d.shutDownCh <- d.shutdown(ctx, q)
+		d.shutDownCh <- d.shutdown(ctx, q, deps)
 	}()
 
 	for {
 		select {
 		case recv := <-q.Receive():
-			if err := d.process(ctx, recv.(model.Metric), d.metricDb.Delete); err != nil {
+			if err := d.process(ctx, recv.(model.Metric), deps); err != nil {
 				logger.Errorf("unable processed data: %v", err)
 			}
 		case <-ctx.Done():
@@ -428,13 +454,13 @@ func (d *manager) receive(ctx context.Context, q *iqueue.Queue) {
 
 const workerMul = 2
 
-func (d *manager) worker(ctx context.Context, queue *iqueue.Queue, num int) {
+func (d *manager) worker(ctx context.Context, queue *iqueue.Queue, num int, deps pullDependencies) {
 	for i := 0; i < num; i++ {
-		go d.receive(ctx, queue)
+		go d.receive(ctx, queue, deps)
 	}
 }
 
-func (d *manager) collector(ctx context.Context) {
+func (d *manager) collector(ctx context.Context, deps pullDependencies) {
 	defer close(d.collectCh)
 	for {
 		select {
@@ -443,7 +469,7 @@ func (d *manager) collector(ctx context.Context) {
 			if !ok {
 				queue := iqueue.New()
 				go queue.Loop()
-				d.worker(ctx, queue, runtime.NumCPU()*workerMul)
+				d.worker(ctx, queue, runtime.NumCPU()*workerMul, deps)
 				d.queue[in.EntityID] = queue
 				q = queue
 			}

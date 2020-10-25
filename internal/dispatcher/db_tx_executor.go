@@ -34,9 +34,9 @@ type dbTxExecutor struct {
 }
 
 // Urgently inserts all data from the buffer into persistent storage or returns an error
-func (tx *dbTxExecutor) shutdown(fn appendMetricsFn) error {
+func (tx *dbTxExecutor) shutdown(deps pullDependencies) error {
 	tx.mtx.Lock()
-	if err := fn(context.Background(), tx.buf); err != nil {
+	if err := deps.appendMetricsFn(context.Background(), tx.buf); err != nil {
 		return fmt.Errorf("txExecutor: append many operation failed: %v", err)
 	}
 	tx.buf = tx.buf[:0]
@@ -46,7 +46,7 @@ func (tx *dbTxExecutor) shutdown(fn appendMetricsFn) error {
 
 // This is the main method for adding data. It adds data to the buffer.
 // If the buffer is full, it calls the bulkAppend method
-func (tx *dbTxExecutor) append(ctx context.Context, data model.Metric, fn appendMetricsFn) {
+func (tx *dbTxExecutor) append(ctx context.Context, data model.Metric, deps pullDependencies) {
 	tx.mtx.Lock()
 	if tx.buf == nil {
 		tx.buf = []model.Metric{}
@@ -57,15 +57,12 @@ func (tx *dbTxExecutor) append(ctx context.Context, data model.Metric, fn append
 	tx.mtx.Unlock()
 
 	if bufLen >= tx.opts.dbFlushSize {
-		go tx.bulkAppend(ctx, fn)
+		go tx.bulkAppend(ctx, deps)
 	}
 }
 
-// Abstraction layer for adding a group of metrics
-type appendMetricsFn func(context.Context, []model.Metric) error
-
 // Bulk adds data to persistent storage and clears the buffer
-func (tx *dbTxExecutor) bulkAppend(ctx context.Context, fn appendMetricsFn) {
+func (tx *dbTxExecutor) bulkAppend(ctx context.Context, deps pullDependencies) {
 	logger := logging.FromContext(ctx)
 
 	tx.mtx.Lock()
@@ -74,21 +71,21 @@ func (tx *dbTxExecutor) bulkAppend(ctx context.Context, fn appendMetricsFn) {
 	tx.buf = tx.buf[:0]
 	tx.mtx.Unlock()
 	// call appendMetricsFn
-	if err := fn(context.Background(), tmpBuf); err != nil {
+	if err := deps.appendMetricsFn(context.Background(), tmpBuf); err != nil {
 		logger.Errorf("txExecutor: append many operation failed: %v", err)
 	}
 }
 
 // Every n seconds, data from the buffer must be inserted into the database
-func (tx *dbTxExecutor) flusher(ctx context.Context, fn appendMetricsFn) {
+func (tx *dbTxExecutor) flusher(ctx context.Context, deps pullDependencies) {
 	defer func() {
-		tx.shutdownCh <- tx.shutdown(fn)
+		tx.shutdownCh <- tx.shutdown(deps)
 	}()
 	ticker := time.NewTicker(tx.opts.dbFlushTime)
 	for {
 		select {
 		case <-ticker.C:
-			tx.bulkAppend(ctx, fn)
+			tx.bulkAppend(ctx, deps)
 		case <-ctx.Done():
 			return
 		}
