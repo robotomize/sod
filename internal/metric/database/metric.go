@@ -27,6 +27,7 @@ type DB struct {
 
 func (db *DB) extractKey(key string) string {
 	prefixPos := strings.Index(key, prefix)
+
 	return key[prefixPos+len(prefix):]
 }
 
@@ -43,6 +44,7 @@ func (db *DB) Keys() ([]string, error) {
 		}
 		return nil
 	})
+
 	return bucketKeys, err
 }
 
@@ -52,6 +54,7 @@ func (db *DB) Store(_ context.Context, metric model.Metric) error {
 	if err != nil {
 		return err
 	}
+
 	if err := db.sDB.DB.Update(func(tx *bolt.Tx) error {
 		b = tx.Bucket([]byte(prefix + metric.EntityID))
 		if b == nil {
@@ -77,6 +80,7 @@ func (db *DB) Store(_ context.Context, metric model.Metric) error {
 	}); err != nil {
 		return fmt.Errorf("update transaction error: %v", err)
 	}
+
 	return nil
 }
 
@@ -114,6 +118,7 @@ func (db *DB) AppendMany(_ context.Context, metrics []model.Metric) error {
 	}); err != nil {
 		return fmt.Errorf("update transaction error: %v", err)
 	}
+
 	return nil
 }
 
@@ -133,6 +138,7 @@ func (db *DB) DeleteMany(_ context.Context, metrics []model.Metric) error {
 	}); err != nil {
 		return fmt.Errorf("update transaction error: %v", err)
 	}
+
 	return nil
 }
 
@@ -148,6 +154,7 @@ func (db *DB) Delete(_ context.Context, metric model.Metric) error {
 	}); err != nil {
 		return fmt.Errorf("update transaction error: %v", err)
 	}
+
 	return nil
 }
 
@@ -205,9 +212,11 @@ func (db *DB) FindAll(_ context.Context, filter FilterFn) ([]model.Metric, error
 			filtered = append(filtered, x)
 		}
 	}
+
 	if err := tx.Commit(); err != nil {
 		return nil, fmt.Errorf("committing transaction: %v", err)
 	}
+
 	return filtered, nil
 }
 
@@ -225,6 +234,7 @@ func (db *DB) CountByEntity(entityID string) (int, error) {
 	}); err != nil {
 		return 0, fmt.Errorf("view transaction error: %v", err)
 	}
+
 	return length, nil
 }
 

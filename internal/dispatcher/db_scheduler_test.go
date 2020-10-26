@@ -100,24 +100,28 @@ func TestRebuildSize(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			scheduler := &dbScheduler{opts: dbSchedulerConfig{maxItemsStored: test.maxItemsStored}}
-			deps := pullDependencies{
-				fetchKeys: func() ([]string, error) {
-					return []string{"test-entity"}, test.expectedKeysErr
-				},
-				countByEntity: func(s string) (int, error) {
-					return len(test.batch), test.expectedCountErr
-				},
-				fetchMetricsByEntity: func(s string, fn metricDb.FilterFn) ([]model.Metric, error) {
-					return test.batch, test.expectedFetchErr
-				},
-				deleteMetricsFn: func(ctx context.Context, metrics []model.Metric) error {
-					test.batch = test.batch[0:test.maxItemsStored]
-					return test.expectedDeleteErr
+			scheduler := &dbScheduler{
+				opts: dbSchedulerConfig{
+					maxItemsStored: test.maxItemsStored,
+					deps: pullDependencies{
+						fetchKeys: func() ([]string, error) {
+							return []string{"test-entity"}, test.expectedKeysErr
+						},
+						countByEntity: func(s string) (int, error) {
+							return len(test.batch), test.expectedCountErr
+						},
+						fetchMetricsByEntity: func(s string, fn metricDb.FilterFn) ([]model.Metric, error) {
+							return test.batch, test.expectedFetchErr
+						},
+						deleteMetricsFn: func(ctx context.Context, metrics []model.Metric) error {
+							test.batch = test.batch[0:test.maxItemsStored]
+							return test.expectedDeleteErr
+						},
+					},
 				},
 			}
 
-			err := scheduler.rebuildSize(deps)
+			err := scheduler.rebuildSize()
 			if test.expectedKeysErr != nil && err == nil {
 				t.Errorf(
 					"calling the TestRebuildSize method, the length of data got: %v, expected: %v",
@@ -213,20 +217,24 @@ func TestRebuildOutdated(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			scheduler := &dbScheduler{opts: dbSchedulerConfig{maxItemsStored: test.maxItemsStored}}
-			deps := pullDependencies{
-				fetchKeys: func() ([]string, error) {
-					return []string{"test-entity"}, test.expectedKeysErr
-				},
-				fetchMetricsByEntity: func(s string, fn metricDb.FilterFn) ([]model.Metric, error) {
-					return test.batch, test.expectedFetchErr
-				},
-				deleteMetricsFn: func(ctx context.Context, metrics []model.Metric) error {
-					test.batch = test.batch[0:test.maxItemsStored]
-					return test.expectedDeleteErr
+			scheduler := &dbScheduler{
+				opts: dbSchedulerConfig{
+					maxItemsStored: test.maxItemsStored,
+					deps: pullDependencies{
+						fetchKeys: func() ([]string, error) {
+							return []string{"test-entity"}, test.expectedKeysErr
+						},
+						fetchMetricsByEntity: func(s string, fn metricDb.FilterFn) ([]model.Metric, error) {
+							return test.batch, test.expectedFetchErr
+						},
+						deleteMetricsFn: func(ctx context.Context, metrics []model.Metric) error {
+							test.batch = test.batch[0:test.maxItemsStored]
+							return test.expectedDeleteErr
+						},
+					},
 				},
 			}
-			err := scheduler.rebuildOutdated(deps)
+			err := scheduler.rebuildOutdated()
 			if test.expectedKeysErr != nil && err == nil {
 				t.Errorf(
 					"calling the rebuildOutdated method, the length of data got: %v, expected: %v",
@@ -307,17 +315,21 @@ func TestProcessOverSizeMetrics(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			scheduler := &dbScheduler{opts: dbSchedulerConfig{maxItemsStored: test.maxItemsStored}}
-			deps := pullDependencies{
-				fetchMetricsByEntity: func(s string, fn metricDb.FilterFn) ([]model.Metric, error) {
-					return test.batch, test.expectedFetchErr
-				},
-				deleteMetricsFn: func(ctx context.Context, metrics []model.Metric) error {
-					test.batch = test.batch[0:test.maxItemsStored]
-					return test.expectedDeleteErr
+			scheduler := &dbScheduler{
+				opts: dbSchedulerConfig{
+					maxItemsStored: test.maxItemsStored,
+					deps: pullDependencies{
+						fetchMetricsByEntity: func(s string, fn metricDb.FilterFn) ([]model.Metric, error) {
+							return test.batch, test.expectedFetchErr
+						},
+						deleteMetricsFn: func(ctx context.Context, metrics []model.Metric) error {
+							test.batch = test.batch[0:test.maxItemsStored]
+							return test.expectedDeleteErr
+						},
+					},
 				},
 			}
-			err := scheduler.processOverSizeMetrics("test-metrics", deps)
+			err := scheduler.processOverSizeMetrics("test-metrics")
 			if test.expectedFetchErr != nil && err == nil {
 				t.Errorf(
 					"calling the processOverSizeMetrics method, the length of data got: %v, expected: %v",
@@ -366,26 +378,25 @@ func TestSchedule(t *testing.T) {
 				maxItemsStored: test.optsMaxItemsStored,
 				maxStorageTime: test.optsMaxStorageTime,
 				rebuildDbTime:  100 * time.Millisecond,
+				deps: pullDependencies{
+					fetchKeys: func() ([]string, error) {
+						return []string{"test-entity"}, nil
+					},
+					countByEntity: func(s string) (int, error) {
+						return 1, nil
+					},
+					fetchMetricsByEntity: func(s string, fn metricDb.FilterFn) ([]model.Metric, error) {
+						return []model.Metric{}, nil
+					},
+					deleteMetricsFn: func(ctx context.Context, metrics []model.Metric) error {
+						return nil
+					},
+				},
 			}}
-
-			deps := pullDependencies{
-				fetchKeys: func() ([]string, error) {
-					return []string{"test-entity"}, nil
-				},
-				countByEntity: func(s string) (int, error) {
-					return 1, nil
-				},
-				fetchMetricsByEntity: func(s string, fn metricDb.FilterFn) ([]model.Metric, error) {
-					return []model.Metric{}, nil
-				},
-				deleteMetricsFn: func(ctx context.Context, metrics []model.Metric) error {
-					return nil
-				},
-			}
 			ctx, cancel := context.WithTimeout(context.Background(), scheduler.opts.rebuildDbTime*2)
 			defer cancel()
 
-			scheduler.schedule(ctx, deps)
+			scheduler.schedule(ctx)
 		})
 	}
 }

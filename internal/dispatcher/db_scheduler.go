@@ -14,6 +14,7 @@ type dbSchedulerConfig struct {
 	maxItemsStored int
 	maxStorageTime time.Duration
 	rebuildDbTime  time.Duration
+	deps           pullDependencies
 }
 
 // return *dbScheduler with dbSchedulerConfig options
@@ -30,8 +31,8 @@ type dbScheduler struct {
 // @TODO not optimal for memory usage
 // processOutdatedMetrics retrieves all metrics for the specified entity, filters, leaving the oldest metrics,
 // and performs bulk deletion.
-func (s *dbScheduler) processOutdatedMetrics(entityID string, deps pullDependencies) error {
-	metrics, err := deps.fetchMetricsByEntity(entityID, func(metric model.Metric) bool {
+func (s *dbScheduler) processOutdatedMetrics(entityID string) error {
+	metrics, err := s.opts.deps.fetchMetricsByEntity(entityID, func(metric model.Metric) bool {
 		// only processed and metrics with a creation date later than specified in the settings
 		return metric.Status == model.StatusProcessed && time.Since(metric.CreatedAt) > s.opts.maxStorageTime
 	})
@@ -40,7 +41,7 @@ func (s *dbScheduler) processOutdatedMetrics(entityID string, deps pullDependenc
 		return fmt.Errorf("unable find metrics by entity %s: %v", entityID, err)
 	}
 
-	if err := deps.deleteMetricsFn(context.Background(), metrics); err != nil {
+	if err := s.opts.deps.deleteMetricsFn(context.Background(), metrics); err != nil {
 		return fmt.Errorf("unable delete resizable metrics entity %s: %v", entityID, err)
 	}
 	return nil
@@ -49,8 +50,8 @@ func (s *dbScheduler) processOutdatedMetrics(entityID string, deps pullDependenc
 // @TODO not optimal for memory usage
 // processOverSizeMetrics retrieves all metrics for the specified entity, sorts by date added,
 // and deletes the oldest ones.
-func (s *dbScheduler) processOverSizeMetrics(entityID string, deps pullDependencies) error {
-	metrics, err := deps.fetchMetricsByEntity(entityID, func(metric model.Metric) bool {
+func (s *dbScheduler) processOverSizeMetrics(entityID string) error {
+	metrics, err := s.opts.deps.fetchMetricsByEntity(entityID, func(metric model.Metric) bool {
 		return metric.Status == model.StatusProcessed // only the processed values
 	})
 
@@ -64,7 +65,7 @@ func (s *dbScheduler) processOverSizeMetrics(entityID string, deps pullDependenc
 	})
 
 	// Deleting a slice from the first n sorted metrics
-	if err := deps.deleteMetricsFn(context.Background(), metrics[:len(metrics)-s.opts.maxItemsStored]); err != nil {
+	if err := s.opts.deps.deleteMetricsFn(context.Background(), metrics[:len(metrics)-s.opts.maxItemsStored]); err != nil {
 		return fmt.Errorf("unable delete resizable metrics entity %s: %v", entityID, err)
 	}
 	return nil
@@ -72,13 +73,13 @@ func (s *dbScheduler) processOverSizeMetrics(entityID string, deps pullDependenc
 
 // rebuildOutdated gets all keys of an entity and calls the data processing for each entity
 // Checks for outdated metrics for each entity
-func (s *dbScheduler) rebuildOutdated(deps pullDependencies) error {
-	keys, err := deps.fetchKeys()
+func (s *dbScheduler) rebuildOutdated() error {
+	keys, err := s.opts.deps.fetchKeys()
 	if err != nil {
 		return fmt.Errorf("unable to fetch metric keys: %v", err)
 	}
 	for i := range keys {
-		if err := s.processOutdatedMetrics(keys[i], deps); err != nil {
+		if err := s.processOutdatedMetrics(keys[i]); err != nil {
 			return fmt.Errorf("unable process metrics: %v", err)
 		}
 	}
@@ -87,21 +88,21 @@ func (s *dbScheduler) rebuildOutdated(deps pullDependencies) error {
 
 // rebuildSize gets all keys of an entity and calls the data processing for each entity
 // calls a check for the number of elements in the DB for each entity
-func (s *dbScheduler) rebuildSize(deps pullDependencies) error {
-	keys, err := deps.fetchKeys()
+func (s *dbScheduler) rebuildSize() error {
+	keys, err := s.opts.deps.fetchKeys()
 	if err != nil {
 		return fmt.Errorf("unable fetch keys: %v", err)
 	}
 	for i := range keys {
 		// getting the number of metrics for the entity
-		length, err := deps.countByEntity(keys[i])
+		length, err := s.opts.deps.countByEntity(keys[i])
 		if err != nil {
 			return fmt.Errorf("unable count by entity %s: %v", keys[i], err)
 		}
 		// If the number of elements in the entity is greater than the one specified in the configuration,
 		//t hen run the processOverSizeMetrics
 		if length > s.opts.maxItemsStored {
-			if err := s.processOverSizeMetrics(keys[i], deps); err != nil {
+			if err := s.processOverSizeMetrics(keys[i]); err != nil {
 				return fmt.Errorf("unable process metrics: %v", err)
 			}
 		}
@@ -111,7 +112,7 @@ func (s *dbScheduler) rebuildSize(deps pullDependencies) error {
 }
 
 // Scheduler for running data cleanup functions in the DB
-func (s *dbScheduler) schedule(ctx context.Context, deps pullDependencies) {
+func (s *dbScheduler) schedule(ctx context.Context) {
 	logger := logging.FromContext(ctx)
 	// determining the time of data verification
 	if s.opts.rebuildDbTime == 0 {
@@ -127,14 +128,14 @@ func (s *dbScheduler) schedule(ctx context.Context, deps pullDependencies) {
 			// if the configuration specifies the maximum size of data to store
 			// then you need to check the amount of data stored in the storage.
 			if s.opts.maxItemsStored > 0 {
-				if err := s.rebuildSize(deps); err != nil {
+				if err := s.rebuildSize(); err != nil {
 					logger.Errorf("unable db rebuild size: %v", err)
 				}
 			}
 			// if the configuration specifies the maximum data storage time
 			// then you need to check the time when metrics were created in the storage.
 			if s.opts.maxStorageTime > 0 {
-				if err := s.rebuildOutdated(deps); err != nil {
+				if err := s.rebuildOutdated(); err != nil {
 					logger.Errorf("unable db rebuild outdated: %v", err)
 				}
 			}

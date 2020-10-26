@@ -24,6 +24,7 @@ type Options struct {
 	dbFlushTime        time.Duration
 	dbFlushSize        int
 	rebuildDbTime      time.Duration
+	deps               pullDependencies
 }
 
 type Option func(*manager)
@@ -107,8 +108,19 @@ func New(
 		f(d)
 	}
 
+	d.opts.deps = pullDependencies{
+		fetchMetrics:         d.metricDb.FindAll,
+		fetchMetricsByEntity: d.metricDb.FindByEntity,
+		deleteMetric:         d.metricDb.Delete,
+		deleteMetricsFn:      d.metricDb.DeleteMany,
+		appendMetricsFn:      d.metricDb.AppendMany,
+		fetchKeys:            d.metricDb.Keys,
+		countByEntity:        d.metricDb.CountByEntity,
+	}
+
 	// Creating a new instance of newDbScheduler.
 	d.dbScheduler = newDbScheduler(dbSchedulerConfig{
+		deps:           d.opts.deps,
 		maxItemsStored: d.opts.maxItemsStored,
 		maxStorageTime: d.opts.maxStorageTime,
 		rebuildDbTime:  d.opts.rebuildDbTime,
@@ -118,6 +130,7 @@ func New(
 	d.dbTxExecutor = newDbTxExecutor(
 		db,
 		dbTxExecutorOptions{
+			deps:        d.opts.deps,
 			dbFlushTime: d.opts.dbFlushTime,
 			dbFlushSize: d.opts.dbFlushSize,
 		},
@@ -223,9 +236,9 @@ func (d *manager) Run(ctx context.Context) error {
 		countByEntity:        d.metricDb.CountByEntity,
 	}
 
-	go d.collector(ctx, deps)
-	go d.dbTxExecutor.flusher(ctx, deps)
-	go d.dbScheduler.schedule(ctx, deps)
+	go d.collector(ctx)
+	go d.dbTxExecutor.flusher(ctx)
+	go d.dbScheduler.schedule(ctx)
 
 	if err := d.bulkLoad(ctx, deps); err != nil {
 		return fmt.Errorf("can not start dispatcher manager: %v", err)
@@ -322,7 +335,7 @@ func (d *manager) bulkLoad(ctx context.Context, deps pullDependencies) error {
 	return nil
 }
 
-func (d *manager) process(ctx context.Context, metric model.Metric, deps pullDependencies) error {
+func (d *manager) process(ctx context.Context, metric model.Metric) error {
 	logger := logging.FromContext(ctx)
 	d.mtx.RLock()
 	entityPredictor, ok := d.predictors[metric.EntityID]
@@ -342,18 +355,18 @@ func (d *manager) process(ctx context.Context, metric model.Metric, deps pullDep
 
 	if entityPredictor.Len() < d.opts.skipItems || entityPredictor.Len() < 3 {
 		metric.Status = model.StatusProcessed
-		d.dbTxExecutor.append(ctx, metric, deps)
+		d.dbTxExecutor.append(ctx, metric)
 		entityPredictor.Append(&metric)
 		return nil
 	}
 
 	metric.Status = model.StatusNew
 
-	d.dbTxExecutor.append(ctx, metric, deps)
+	d.dbTxExecutor.append(ctx, metric)
 
 	result, predictErr := entityPredictor.Predict(metric.Point())
 	if predictErr != nil {
-		if err := deps.deleteMetric(context.Background(), metric); err != nil {
+		if err := d.opts.deps.deleteMetric(context.Background(), metric); err != nil {
 			return fmt.Errorf("unable predict: %v", fmt.Errorf("metric delete error %s: %v", metric.EntityID, err))
 		}
 		return fmt.Errorf("unable predict: %v", predictErr)
@@ -376,7 +389,7 @@ func (d *manager) process(ctx context.Context, metric model.Metric, deps pullDep
 	}
 
 	if !d.opts.allowAppendData {
-		if err := deps.deleteMetric(ctx, metric); err != nil {
+		if err := d.opts.deps.deleteMetric(ctx, metric); err != nil {
 			return fmt.Errorf("delete transaction error: %v", err)
 		}
 		return nil
@@ -388,7 +401,7 @@ func (d *manager) process(ctx context.Context, metric model.Metric, deps pullDep
 
 	metric.Status = model.StatusProcessed
 
-	d.dbTxExecutor.append(ctx, metric, deps)
+	d.dbTxExecutor.append(ctx, metric)
 
 	return nil
 }
@@ -403,7 +416,7 @@ func (d *manager) alert(in ...model.Metric) {
 	d.mtx.RUnlock()
 }
 
-func (d *manager) shutdown(ctx context.Context, q *iqueue.Queue, deps pullDependencies) error {
+func (d *manager) shutdown(ctx context.Context, q *iqueue.Queue) error {
 	for {
 		front := q.Queue().Front()
 		if front == nil {
@@ -414,7 +427,7 @@ func (d *manager) shutdown(ctx context.Context, q *iqueue.Queue, deps pullDepend
 			break
 		}
 
-		if err := d.process(ctx, front.Value.(model.Metric), deps); err != nil {
+		if err := d.process(ctx, front.Value.(model.Metric)); err != nil {
 			return fmt.Errorf("dispatcher shutdown: unable processed data: %v", err)
 		}
 
@@ -434,16 +447,16 @@ func (d *manager) recvShutdown() bool {
 	return finishedNum == predictorsNum
 }
 
-func (d *manager) receive(ctx context.Context, q *iqueue.Queue, deps pullDependencies) {
+func (d *manager) receive(ctx context.Context, q *iqueue.Queue) {
 	logger := logging.FromContext(ctx)
 	defer func() {
-		d.shutDownCh <- d.shutdown(ctx, q, deps)
+		d.shutDownCh <- d.shutdown(ctx, q)
 	}()
 
 	for {
 		select {
 		case recv := <-q.Receive():
-			if err := d.process(ctx, recv.(model.Metric), deps); err != nil {
+			if err := d.process(ctx, recv.(model.Metric)); err != nil {
 				logger.Errorf("unable processed data: %v", err)
 			}
 		case <-ctx.Done():
@@ -454,13 +467,13 @@ func (d *manager) receive(ctx context.Context, q *iqueue.Queue, deps pullDepende
 
 const workerMul = 2
 
-func (d *manager) worker(ctx context.Context, queue *iqueue.Queue, num int, deps pullDependencies) {
+func (d *manager) worker(ctx context.Context, queue *iqueue.Queue, num int) {
 	for i := 0; i < num; i++ {
-		go d.receive(ctx, queue, deps)
+		go d.receive(ctx, queue)
 	}
 }
 
-func (d *manager) collector(ctx context.Context, deps pullDependencies) {
+func (d *manager) collector(ctx context.Context) {
 	defer close(d.collectCh)
 	for {
 		select {
@@ -469,7 +482,7 @@ func (d *manager) collector(ctx context.Context, deps pullDependencies) {
 			if !ok {
 				queue := iqueue.New()
 				go queue.Loop()
-				d.worker(ctx, queue, runtime.NumCPU()*workerMul, deps)
+				d.worker(ctx, queue, runtime.NumCPU()*workerMul)
 				d.queue[in.EntityID] = queue
 				q = queue
 			}
