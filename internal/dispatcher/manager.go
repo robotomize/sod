@@ -226,21 +226,11 @@ func (d *manager) Run(ctx context.Context) error {
 	c, cancel := context.WithCancel(context.Background())
 	d.cancelNotifier = cancel
 
-	deps := pullDependencies{
-		fetchMetrics:         d.metricDb.FindAll,
-		fetchMetricsByEntity: d.metricDb.FindByEntity,
-		deleteMetric:         d.metricDb.Delete,
-		deleteMetricsFn:      d.metricDb.DeleteMany,
-		appendMetricsFn:      d.metricDb.AppendMany,
-		fetchKeys:            d.metricDb.Keys,
-		countByEntity:        d.metricDb.CountByEntity,
-	}
-
 	go d.collector(ctx)
 	go d.dbTxExecutor.flusher(ctx)
 	go d.dbScheduler.schedule(ctx)
 
-	if err := d.bulkLoad(ctx, deps); err != nil {
+	if err := d.bulkLoad(ctx); err != nil {
 		return fmt.Errorf("can not start dispatcher manager: %v", err)
 	}
 
@@ -294,10 +284,10 @@ func (d *manager) Collect(data ...model.Metric) error {
 	return nil
 }
 
-func (d *manager) bulkLoad(ctx context.Context, deps pullDependencies) error {
+func (d *manager) bulkLoad(ctx context.Context) error {
 	var newMetrics []model.Metric
 
-	data, err := deps.fetchMetrics(ctx, nil)
+	data, err := d.opts.deps.fetchMetrics(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("error fetching all metrics: %v", err)
 	}
