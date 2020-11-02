@@ -77,7 +77,7 @@ func WithAllowAppendOutlier(t bool) Option {
 	}
 }
 
-// New return constructor for the Manager structure.
+// New return manager
 func New(
 	db *database.DB,
 	providePredictorFn predictor.ProvideFn,
@@ -108,6 +108,7 @@ func New(
 		f(d)
 	}
 
+	// structure containing functions for getting and adding metrics
 	d.opts.deps = pullDependencies{
 		fetchMetrics:         d.metricDb.FindAll,
 		fetchMetricsByEntity: d.metricDb.FindByEntity,
@@ -292,6 +293,7 @@ func (d *manager) Predict(entityID string, data predictor.DataPoint) (*predictor
 	return result, nil
 }
 
+// Collect adds data to the feed for saving to the queue
 func (d *manager) Collect(data ...model.Metric) error {
 	d.mtx.RLock()
 	if d.closed {
@@ -305,9 +307,11 @@ func (d *manager) Collect(data ...model.Metric) error {
 	return nil
 }
 
+// bulkLoad loading data from storage to memory
 func (d *manager) bulkLoad(ctx context.Context) error {
 	var newMetrics []model.Metric
 
+	// getting all metrics that are in the storage
 	data, err := d.opts.deps.fetchMetrics(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("error fetching all metrics: %v", err)
@@ -318,6 +322,7 @@ func (d *manager) bulkLoad(ctx context.Context) error {
 		if _, ok := processedMetrics[dat.EntityID]; !ok {
 			processedMetrics[dat.EntityID] = []predictor.DataPoint{}
 		}
+		// divide metrics by the statuses "processed" and " new"
 		if dat.IsProcessed() {
 			processedMetrics[dat.EntityID] = append(processedMetrics[dat.EntityID], dat)
 		}
@@ -336,9 +341,10 @@ func (d *manager) bulkLoad(ctx context.Context) error {
 			d.predictors[k] = newPredictorFn
 			loadPredictor = newPredictorFn
 		}
+		// bulk load data to the predictor
 		loadPredictor.Build(list...)
 	}
-
+	// metrics with the "new" status are sent to the queue for processing
 	for i := range newMetrics {
 		d.collectCh <- newMetrics[i]
 	}
