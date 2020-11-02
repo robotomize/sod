@@ -173,13 +173,20 @@ type CollectPredictor interface {
 
 // Abstractions for getting dependencies
 type (
-	fetchMetricsFn         func(context.Context, metricDb.FilterFn) ([]model.Metric, error)
+	// function for getting all metrics
+	fetchMetricsFn func(context.Context, metricDb.FilterFn) ([]model.Metric, error)
+	// function for getting metrics based on the loyalty id
 	fetchMetricsByEntityFn func(string, metricDb.FilterFn) ([]model.Metric, error)
-	deleteMetricFn         func(context.Context, model.Metric) error
-	deleteMetricsFn        func(context.Context, []model.Metric) error
-	appendMetricsFn        func(context.Context, []model.Metric) error
-	fetchKeysFn            func() ([]string, error)
-	countByEntityFn        func(string) (int, error)
+	// function for deleting a metric
+	deleteMetricFn func(context.Context, model.Metric) error
+	// function for deleting multiple metrics
+	deleteMetricsFn func(context.Context, []model.Metric) error
+	// function to add sets of metrics
+	appendMetricsFn func(context.Context, []model.Metric) error
+	// function for getting all entity IDs
+	fetchKeysFn func() ([]string, error)
+	// number of metrics by entity id
+	countByEntityFn func(string) (int, error)
 )
 
 //  General structure for aggregation of dependency pulling functions
@@ -198,28 +205,38 @@ type pullDependencies struct {
 type manager struct {
 	mtx sync.RWMutex
 
+	// Manager options
 	opts Options
-
-	metricDb     *metricDb.DB
-	notifier     alert.Manager
+	//  Main metric storage
+	metricDb *metricDb.DB
+	//  The notification manager
+	notifier alert.Manager
+	// The transaction manager in the store
 	dbTxExecutor *dbTxExecutor
-	dbScheduler  *dbScheduler
+	// Managing data in storage
+	dbScheduler *dbScheduler
 
+	// Queue for new data to be processed
 	queue map[string]*iqueue.Queue
-
-	collectCh  chan model.Metric
+	// New data channel for processing
+	collectCh chan model.Metric
+	// Channel to shutdown the application
 	shutDownCh chan<- error
 
-	closed             bool
+	closed bool
+	// The factory returns an instance of the predictor
 	predictorProvideFn predictor.ProvideFn
-	predictors         map[string]predictor.Predictor
-
+	// Created predictors
+	predictors map[string]predictor.Predictor
+	// The last vector is not outlier
 	normVectors map[string][]float64
 
+	// cancellation
 	cancelNotifier func()
 	cancel         func()
 }
 
+// The Run method starts the main data collection and analysis functions
 func (d *manager) Run(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	d.cancel = cancel
@@ -230,10 +247,11 @@ func (d *manager) Run(ctx context.Context) error {
 	go d.dbTxExecutor.flusher(ctx)
 	go d.dbScheduler.schedule(ctx)
 
+	// Loading data from storage to memory
 	if err := d.bulkLoad(ctx); err != nil {
 		return fmt.Errorf("can not start dispatcher manager: %v", err)
 	}
-
+	// Launching the notification service
 	if err := d.notifier.Run(c); err != nil {
 		return fmt.Errorf("alert.Run: %w", err)
 	}
@@ -241,17 +259,19 @@ func (d *manager) Run(ctx context.Context) error {
 	return nil
 }
 
+// Stop the manager
 func (d *manager) Stop() {
 	d.cancel()
 }
 
+// Predict returns a structure with the result of checking the transmitted data for deviations
 func (d *manager) Predict(entityID string, data predictor.DataPoint) (*predictor.Conclusion, error) {
 	d.mtx.Lock()
 	if d.closed {
 		d.mtx.Unlock()
 		return nil, fmt.Errorf("error to predict, shutting down")
 	}
-
+	//  If the predictor instance does not exist we return a new one from the factory
 	predictorFn, ok := d.predictors[entityID]
 	if !ok {
 		newPredictor, err := d.predictorProvideFn()
@@ -264,6 +284,7 @@ func (d *manager) Predict(entityID string, data predictor.DataPoint) (*predictor
 	}
 
 	d.mtx.Unlock()
+	// Calling predict
 	result, err := predictorFn.Predict(data.Point())
 	if err != nil {
 		return nil, err
