@@ -91,7 +91,12 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(req.Data) > h.cfg.MaxDataItemsLen {
-		httputil.RespBadRequest(ctx, w, `{"error": "data items is too large, max allowed len is %d"}`, h.cfg.MaxDataItemsLen)
+		httputil.RespBadRequest(
+			ctx,
+			w,
+			`{"error": "data items is too large, max allowed len is %d"}`,
+			h.cfg.MaxDataItemsLen,
+		)
 		return
 	}
 	var respData []struct {
@@ -125,7 +130,8 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	if err := errGrp.Wait(); err != nil {
-		httputil.RespInternalError(ctx, w, `{"error": "predict processing error, %v"}`, err)
+		httputil.RespInternalError(ctx, w, "predict processing error: %v", err)
+		return
 	}
 	resp := response{
 		EntityID: req.EntityID,
@@ -133,7 +139,7 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	resp.Data = respData
 	bytes, err := json.Marshal(resp)
 	if err != nil {
-		httputil.RespInternalError(ctx, w, `{"error": "failed to encode output json %v"}`, err)
+		httputil.RespInternalError(ctx, w, "failed to encode output json %v", err)
 		return
 	}
 	w.WriteHeader(http.StatusOK)

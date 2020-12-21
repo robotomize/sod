@@ -31,7 +31,7 @@ func DecodeErr(ctx context.Context, w http.ResponseWriter, err error) {
 	case err.Error() == "http: request body too large":
 		w.WriteHeader(http.StatusRequestEntityTooLarge)
 	default:
-		RespInternalError(ctx, w, `{"error": "failed to decode json %v"}`, err)
+		RespInternalError(ctx, w, "failed to decode json: %v", err)
 	}
 }
 
