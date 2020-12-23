@@ -15,6 +15,66 @@ import (
 	"time"
 )
 
+// Contract for returning the Manager instance
+type ProvideFn func(alert.Manager, chan<- error) (Manager, error)
+
+// The interface defines the behavior of the Manager instance with all available methods.
+// This interface defines the behavior of the background service.
+type Manager interface {
+	CollectPredictor
+	// Start method of the service
+	Run(context.Context) error
+	// Method for stopping the service
+	Stop()
+}
+
+// Collector defines the behavior of the service for data storage and analysis
+type Collector interface {
+	// The method accepts data from outside and writes it to the queue
+	Collect(in ...model.Metric) error
+}
+
+// The interface defines the behavior of the service only for predictions
+type Predictor interface {
+	// The method determines whether the data is an outlier
+	Predict(entityID string, in predictor.DataPoint) (*predictor.Conclusion, error)
+}
+
+// Aggregation interface for Collector and Predictor interfaces
+type CollectPredictor interface {
+	Collector
+	Predictor
+}
+
+// Abstractions for getting dependencies
+type (
+	// function for getting all metrics
+	fetchMetricsFn func(context.Context, metricDb.FilterFn) ([]model.Metric, error)
+	// function for getting metrics based on the loyalty id
+	fetchMetricsByEntityFn func(string, metricDb.FilterFn) ([]model.Metric, error)
+	// function for deleting a metric
+	deleteMetricFn func(context.Context, model.Metric) error
+	// function for deleting multiple metrics
+	deleteMetricsFn func(context.Context, []model.Metric) error
+	// function to add sets of metrics
+	appendMetricsFn func(context.Context, []model.Metric) error
+	// function for getting all entity IDs
+	fetchKeysFn func() ([]string, error)
+	// number of metrics by entity id
+	countByEntityFn func(string) (int, error)
+)
+
+//  General structure for aggregation of dependency pulling functions
+type pullDependencies struct {
+	fetchMetrics         fetchMetricsFn
+	fetchMetricsByEntity fetchMetricsByEntityFn
+	deleteMetric         deleteMetricFn
+	deleteMetricsFn      deleteMetricsFn
+	appendMetricsFn      appendMetricsFn
+	fetchKeys            fetchKeysFn
+	countByEntity        countByEntityFn
+}
+
 type Options struct {
 	skipItems          int
 	maxItemsStored     int
@@ -139,66 +199,6 @@ func New(
 	)
 
 	return d, nil
-}
-
-// Contract for returning the Manager instance
-type ProvideFn func(alert.Manager, chan<- error) (Manager, error)
-
-// The interface defines the behavior of the Manager instance with all available methods.
-// This interface defines the behavior of the background service.
-type Manager interface {
-	CollectPredictor
-	// Start method of the service
-	Run(context.Context) error
-	// Method for stopping the service
-	Stop()
-}
-
-// Collector defines the behavior of the service for data storage and analysis
-type Collector interface {
-	// The method accepts data from outside and writes it to the queue
-	Collect(in ...model.Metric) error
-}
-
-// The interface defines the behavior of the service only for predictions
-type Predictor interface {
-	// The method determines whether the data is an outlier
-	Predict(entityID string, in predictor.DataPoint) (*predictor.Conclusion, error)
-}
-
-// Aggregation interface for Collector and Predictor interfaces
-type CollectPredictor interface {
-	Collector
-	Predictor
-}
-
-// Abstractions for getting dependencies
-type (
-	// function for getting all metrics
-	fetchMetricsFn func(context.Context, metricDb.FilterFn) ([]model.Metric, error)
-	// function for getting metrics based on the loyalty id
-	fetchMetricsByEntityFn func(string, metricDb.FilterFn) ([]model.Metric, error)
-	// function for deleting a metric
-	deleteMetricFn func(context.Context, model.Metric) error
-	// function for deleting multiple metrics
-	deleteMetricsFn func(context.Context, []model.Metric) error
-	// function to add sets of metrics
-	appendMetricsFn func(context.Context, []model.Metric) error
-	// function for getting all entity IDs
-	fetchKeysFn func() ([]string, error)
-	// number of metrics by entity id
-	countByEntityFn func(string) (int, error)
-)
-
-//  General structure for aggregation of dependency pulling functions
-type pullDependencies struct {
-	fetchMetrics         fetchMetricsFn
-	fetchMetricsByEntity fetchMetricsByEntityFn
-	deleteMetric         deleteMetricFn
-	deleteMetricsFn      deleteMetricsFn
-	appendMetricsFn      appendMetricsFn
-	fetchKeys            fetchKeysFn
-	countByEntity        countByEntityFn
 }
 
 // The main structure of SOD.
