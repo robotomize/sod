@@ -242,6 +242,9 @@ func (db *DB) FindByEntity(entityID string, filter FilterFn) ([]model.Metric, er
 	var list []model.Metric
 	if err := db.sDB.DB.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(prefix + entityID))
+		if b == nil {
+			return nil
+		}
 		c := b.Cursor()
 		for k, v := c.First(); k != nil; k, v = c.Next() {
 			var metric model.Metric

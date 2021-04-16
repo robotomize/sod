@@ -17,7 +17,6 @@ import (
 func main() {
 	ctx, done := shutdown.New()
 	logger := logging.FromContext(ctx)
-	go http.ListenAndServe("0.0.0.0:8080", nil)
 	if err := run(ctx, done); err != nil {
 		logger.Fatal(err)
 	}
@@ -86,6 +85,12 @@ func run(ctx context.Context, cancel func()) error {
 
 	go func() {
 		if err := srv.ServeHTTPHandler(ctx, mux); err != nil {
+			cancel()
+		}
+	}()
+
+	go func() {
+		if err := http.ListenAndServe("0.0.0.0:8080", nil); err != nil {
 			cancel()
 		}
 	}()
