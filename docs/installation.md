@@ -8,11 +8,11 @@ SOD uses the configuration method via environment variables.
 Running SOD from the repository
 
 ```bash
-go run cmd/sod
+go run cmd/sod-srv
 ```
 
 or
 
 ```bash
-go build cmd/sod
+go build cmd/sod-srv
 ```
