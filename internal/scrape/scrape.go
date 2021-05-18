@@ -10,14 +10,15 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"sod/internal/dispatcher"
-	"sod/internal/geom"
-	"sod/internal/logging"
-	"sod/internal/metric/model"
-	"sod/pkg/container/rworker"
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/go-sod/sod/internal/dispatcher"
+	"github.com/go-sod/sod/internal/geom"
+	"github.com/go-sod/sod/internal/logging"
+	"github.com/go-sod/sod/internal/metric/model"
+	"github.com/go-sod/sod/pkg/container/rworker"
 )
 
 type response struct {
@@ -169,8 +170,9 @@ func (s *manager) scrape(url string) (response, error) {
 
 	decoder := json.NewDecoder(bytes.NewReader(body))
 	if err := decoder.Decode(&response); err != nil {
-		return response, fmt.Errorf("decoding reponse error: %w", err)
+		return response, fmt.Errorf("decoding response error: %w", err)
 	}
+
 	return response, nil
 }
 
@@ -186,7 +188,7 @@ func (s *manager) scrapping(ctx context.Context) {
 	}
 OuterLoop:
 	for _, link := range s.targets {
-		urlData, err := url.Parse(link.Url)
+		urlData, err := url.Parse(link.URL)
 		if err != nil {
 			errCh <- fmt.Errorf("url parsing error: %w", err)
 			continue OuterLoop
@@ -194,14 +196,14 @@ OuterLoop:
 		rworker.Job(&wg, func() error {
 			resp, err := s.scrape(urlData.String())
 			if err != nil {
-				return fmt.Errorf("scrape error: %v", err)
+				return fmt.Errorf("scrape error: %w", err)
 			}
 			sort.Slice(resp.Data, func(i, j int) bool {
 				return resp.Data[i].CreatedAt.Before(resp.Data[j].CreatedAt)
 			})
 			for _, dat := range resp.Data {
 				if err := s.outlier.Collect(model.NewMetric(resp.EntityID, geom.NewPoint(dat.Vec), dat.CreatedAt, dat.Extra)); err != nil {
-					return fmt.Errorf("send to collect error: %v", err)
+					return fmt.Errorf("send to collect error: %w", err)
 				}
 			}
 			return nil

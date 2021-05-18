@@ -2,11 +2,12 @@ package lof
 
 import (
 	"fmt"
-	"sod/internal/geom"
-	"sod/internal/predictor"
-	"sod/internal/predictor/knn/brute"
-	"sod/internal/predictor/knn/gbkd"
 	"time"
+
+	"github.com/go-sod/sod/internal/geom"
+	"github.com/go-sod/sod/internal/predictor"
+	"github.com/go-sod/sod/internal/predictor/knn/brute"
+	"github.com/go-sod/sod/internal/predictor/knn/gbkd"
 )
 
 const MinKNum = 3
@@ -40,7 +41,7 @@ func NNFor(a AlgType, maxItems int, maxTime time.Duration, distFn func(vec, vec1
 	case AlgTypeBrute:
 		return brute.NewBruteAlg(distFn, brute.WithMaxItems(maxItems), brute.WithStorageTime(maxTime)), nil
 	case AlgTypeKDTree:
-		//return kd.NewKDAlg(distFn, kd.WithStorageTime(maxTime), kd.WithMaxItems(maxItems)), nil
+		// return kd.NewKDAlg(distFn, kd.WithStorageTime(maxTime), kd.WithMaxItems(maxItems)), nil
 		return gbkd.NewGBkdAlg(distFn, gbkd.WithStorageTime(maxTime), gbkd.WithMaxItems(maxItems)), nil
 	default:
 		return nil, fmt.Errorf("unable to create alg with alg type %s", a)

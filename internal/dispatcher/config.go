@@ -13,10 +13,10 @@ type Config struct {
 	MaxItemsStored int `envconfig:"SOD_OUTLIER_MAX_ITEMS_STORED" default:"1000000"`
 	// maximum retention period for elements in the DB for each entity
 	MaxStorageTime time.Duration `envconfig:"SOD_OUTLIER_MAX_STORAGE_TIME" default:"0s"`
-	//Critical buffer size in dbTxExecutor DP where data is flushed to disk
-	DbFlushSize int `envconfig:"SOD_DB_FLUSH_SIZE" default:"10"`
+	// Critical buffer size in dbTxExecutor DP where data is flushed to disk
+	DBFlushSize int `envconfig:"SOD_DB_FLUSH_SIZE" default:"10"`
 	// Critical time of life in dbTxExecutor buffer in which data to be flushed to disk
-	DbFlushTime time.Duration `envconfig:"SOD_DB_FLUSH_TIME" default:"5s"`
+	DBFlushTime time.Duration `envconfig:"SOD_DB_FLUSH_TIME" default:"5s"`
 	//  Allow adding data to the dataset
 	AllowAppendData bool `envconfig:"SOD_OUTLIER_ALLOW_APPEND_DATA" default:"true"`
 	// Allow adding outliers to the dataset

@@ -2,8 +2,9 @@ package alert
 
 import (
 	"encoding/json"
-	"sod/internal/httputil"
 	"time"
+
+	"github.com/go-sod/sod/internal/httputil"
 )
 
 type Config struct {
@@ -25,7 +26,7 @@ func (ts *Targets) Decode(value string) error {
 }
 
 type Target struct {
-	Url        string                    `json:"url"`
+	URL        string                    `json:"url"`
 	EntityID   string                    `json:"entityId"`
 	HTTPConfig httputil.HTTPClientConfig `json:"httpConfig"`
 }

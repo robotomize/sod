@@ -4,10 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	bolt "go.etcd.io/bbolt"
-	"sod/internal/database"
-	"sod/internal/metric/model"
 	"strings"
+
+	"github.com/go-sod/sod/internal/database"
+	"github.com/go-sod/sod/internal/metric/model"
+	bolt "go.etcd.io/bbolt"
 )
 
 const (
@@ -78,7 +79,7 @@ func (db *DB) Store(_ context.Context, metric model.Metric) error {
 		}
 		return nil
 	}); err != nil {
-		return fmt.Errorf("update transaction error: %v", err)
+		return fmt.Errorf("update transaction error: %w", err)
 	}
 
 	return nil
@@ -116,7 +117,7 @@ func (db *DB) AppendMany(_ context.Context, metrics []model.Metric) error {
 		}
 		return nil
 	}); err != nil {
-		return fmt.Errorf("update transaction error: %v", err)
+		return fmt.Errorf("update transaction error: %w", err)
 	}
 
 	return nil
@@ -136,7 +137,7 @@ func (db *DB) DeleteMany(_ context.Context, metrics []model.Metric) error {
 		}
 		return nil
 	}); err != nil {
-		return fmt.Errorf("update transaction error: %v", err)
+		return fmt.Errorf("update transaction error: %w", err)
 	}
 
 	return nil
@@ -152,7 +153,7 @@ func (db *DB) Delete(_ context.Context, metric model.Metric) error {
 
 		return b.Delete([]byte(metric.ID.String()))
 	}); err != nil {
-		return fmt.Errorf("update transaction error: %v", err)
+		return fmt.Errorf("update transaction error: %w", err)
 	}
 
 	return nil
@@ -165,10 +166,10 @@ func (db *DB) FindAll(_ context.Context, filter FilterFn) ([]model.Metric, error
 	)
 	tx, err := db.sDB.DB.Begin(true)
 	if err != nil {
-		return nil, fmt.Errorf("starting transaction: %v", err)
+		return nil, fmt.Errorf("starting transaction: %w", err)
 	}
 
-	defer tx.Rollback()
+	defer tx.Rollback() // nolint
 
 	b := tx.Bucket([]byte(entityKeys))
 	if b == nil {
@@ -196,7 +197,7 @@ func (db *DB) FindAll(_ context.Context, filter FilterFn) ([]model.Metric, error
 		for k, v := c.First(); k != nil; k, v = c.Next() {
 			var m model.Metric
 			if err := json.Unmarshal(v, &m); err != nil {
-				return nil, fmt.Errorf("metricCollector unmarshal error, %q", err)
+				return nil, fmt.Errorf("metricCollector unmarshal error, %w", err)
 			}
 			metrics = append(metrics, m)
 		}
@@ -214,7 +215,7 @@ func (db *DB) FindAll(_ context.Context, filter FilterFn) ([]model.Metric, error
 	}
 
 	if err := tx.Commit(); err != nil {
-		return nil, fmt.Errorf("committing transaction: %v", err)
+		return nil, fmt.Errorf("committing transaction: %w", err)
 	}
 
 	return filtered, nil
@@ -232,7 +233,7 @@ func (db *DB) CountByEntity(entityID string) (int, error) {
 		length = stats.KeyN
 		return nil
 	}); err != nil {
-		return 0, fmt.Errorf("view transaction error: %v", err)
+		return 0, fmt.Errorf("view transaction error: %w", err)
 	}
 
 	return length, nil
@@ -249,7 +250,7 @@ func (db *DB) FindByEntity(entityID string, filter FilterFn) ([]model.Metric, er
 		for k, v := c.First(); k != nil; k, v = c.Next() {
 			var metric model.Metric
 			if err := json.Unmarshal(v, &metric); err != nil {
-				return fmt.Errorf("json unmarshal error, %q", err)
+				return fmt.Errorf("json unmarshal error, %w", err)
 			}
 			if filter == nil || filter(metric) {
 				list = append(list, metric)
@@ -257,7 +258,7 @@ func (db *DB) FindByEntity(entityID string, filter FilterFn) ([]model.Metric, er
 		}
 		return nil
 	}); err != nil {
-		return nil, fmt.Errorf("view transaction error: %v", err)
+		return nil, fmt.Errorf("view transaction error: %w", err)
 	}
 
 	return list, nil

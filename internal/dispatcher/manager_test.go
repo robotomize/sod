@@ -2,17 +2,19 @@ package dispatcher
 
 import (
 	"errors"
-	"sod/internal/alert"
-	"sod/internal/database"
-	"sod/internal/geom"
-	"sod/internal/metric/model"
-	"sod/internal/predictor"
-	"sod/internal/predictor/mocks"
 	"testing"
 	"time"
+
+	"github.com/go-sod/sod/internal/alert"
+	"github.com/go-sod/sod/internal/database"
+	"github.com/go-sod/sod/internal/geom"
+	"github.com/go-sod/sod/internal/metric/model"
+	"github.com/go-sod/sod/internal/predictor"
+	"github.com/go-sod/sod/internal/predictor/mocks"
 )
 
 func TestManager_Predict(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		shutdownCh  chan error
@@ -56,7 +58,7 @@ func TestManager_Predict(t *testing.T) {
 			}, notifier, test.shutdownCh)
 
 			conclusion, err := m.Predict("test-entity", dataPoint)
-			if err != test.expectedErr {
+			if !errors.Is(err, test.expectedErr) {
 				t.Errorf("compute Predict, got: %v, expected: %v", err, test.expectedErr)
 			}
 
@@ -68,6 +70,7 @@ func TestManager_Predict(t *testing.T) {
 }
 
 func TestManager_Collect(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		shutdownCh  chan error

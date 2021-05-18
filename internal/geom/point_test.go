@@ -3,6 +3,7 @@ package geom
 import "testing"
 
 func TestPoint_Dimensions(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		p        Point
@@ -15,7 +16,9 @@ func TestPoint_Dimensions(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
+		test := test
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			cmp := test.p.Dimensions()
 			if cmp != test.expected {
 				t.Errorf("the comparison is incorrect got: %v, expected: %v", cmp, test.expected)
@@ -25,6 +28,7 @@ func TestPoint_Dimensions(t *testing.T) {
 }
 
 func TestPoint_Points(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		p        Point
@@ -34,7 +38,9 @@ func TestPoint_Points(t *testing.T) {
 		{name: "positive", p: NewPoint([]float64{1, 2, 3}), slice: []float64{1, 2, 3}, expected: true},
 	}
 	for _, test := range tests {
+		test := test
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			slice := test.p.Points()
 			for i := range slice {
 				if slice[i] != test.slice[i] {
@@ -48,6 +54,7 @@ func TestPoint_Points(t *testing.T) {
 }
 
 func TestPoint_Equal(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		p        Point
@@ -75,6 +82,7 @@ func TestPoint_Equal(t *testing.T) {
 }
 
 func TestPoint_SizeEqual(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		p        Point
@@ -102,6 +110,7 @@ func TestPoint_SizeEqual(t *testing.T) {
 }
 
 func TestPoint_Dim(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		p        Point
@@ -113,7 +122,9 @@ func TestPoint_Dim(t *testing.T) {
 		{name: "positive", p: NewPoint([]float64{1, 2, 3}), idx: 2, expected: 3},
 	}
 	for _, test := range tests {
+		test := test
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			if test.name == "positive" {
 				got := test.p.Dim(test.idx)
 				if test.expected != got {

@@ -4,9 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
+	"github.com/go-sod/sod/internal/alert/model"
+	"github.com/go-sod/sod/internal/database"
 	bolt "go.etcd.io/bbolt"
-	"sod/internal/alert/model"
-	"sod/internal/database"
 )
 
 const (
@@ -69,7 +70,7 @@ func (db *DB) Store(_ context.Context, alert model.Alert) error {
 		}
 		return nil
 	}); err != nil {
-		return fmt.Errorf("update transaction error: %v", err)
+		return fmt.Errorf("update transaction error: %w", err)
 	}
 	return nil
 }
@@ -84,7 +85,7 @@ func (db *DB) Delete(_ context.Context, alert model.Alert) error {
 
 		return b.Delete([]byte(alert.ID.String()))
 	}); err != nil {
-		return fmt.Errorf("update transaction error: %v", err)
+		return fmt.Errorf("update transaction error: %w", err)
 	}
 	return nil
 }
@@ -96,7 +97,7 @@ func (db *DB) FindAll(_ context.Context, filter FilterFn) ([]model.Alert, error)
 	)
 	tx, err := db.sDB.DB.Begin(true)
 	if err != nil {
-		return nil, fmt.Errorf("starting transaction: %v", err)
+		return nil, fmt.Errorf("starting transaction: %w", err)
 	}
 
 	defer tx.Rollback() //nolint:errcheck
@@ -121,7 +122,7 @@ func (db *DB) FindAll(_ context.Context, filter FilterFn) ([]model.Alert, error)
 		for k, v := c.First(); k != nil; k, v = c.Next() {
 			var m model.Alert
 			if err := json.Unmarshal(v, &m); err != nil {
-				return nil, fmt.Errorf("metricCollector unmarshal error, %q", err)
+				return nil, fmt.Errorf("metricCollector unmarshal error, %w", err)
 			}
 			metrics = append(metrics, m)
 		}
@@ -138,7 +139,7 @@ func (db *DB) FindAll(_ context.Context, filter FilterFn) ([]model.Alert, error)
 		}
 	}
 	if err := tx.Commit(); err != nil {
-		return nil, fmt.Errorf("committing transaction: %v", err)
+		return nil, fmt.Errorf("committing transaction: %w", err)
 	}
 	return filtered, nil
 }

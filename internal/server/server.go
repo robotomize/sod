@@ -6,15 +6,16 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"sod/internal/logging"
-	"sod/internal/srvenv"
 	"time"
+
+	"github.com/go-sod/sod/internal/logging"
+	"github.com/go-sod/sod/internal/srvenv"
 )
 
 type Server struct {
 	addr     string
 	listener net.Listener
-	env      *srvenv.SrvEnv
+	env      *srvenv.SrvEnv // nolint
 }
 
 func New(addr string) (*Server, error) {

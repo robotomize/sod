@@ -3,15 +3,16 @@ package setup
 import (
 	"context"
 	"fmt"
+
+	"github.com/go-sod/sod/internal/alert"
+	"github.com/go-sod/sod/internal/database"
+	"github.com/go-sod/sod/internal/dispatcher"
+	"github.com/go-sod/sod/internal/logging"
+	"github.com/go-sod/sod/internal/predictor"
+	"github.com/go-sod/sod/internal/predictor/lof"
+	"github.com/go-sod/sod/internal/scrape"
+	"github.com/go-sod/sod/internal/srvenv"
 	"github.com/kelseyhightower/envconfig"
-	"sod/internal/alert"
-	"sod/internal/database"
-	"sod/internal/dispatcher"
-	"sod/internal/logging"
-	"sod/internal/predictor"
-	"sod/internal/predictor/lof"
-	"sod/internal/scrape"
-	"sod/internal/srvenv"
 )
 
 const (
@@ -65,7 +66,7 @@ func Setup(ctx context.Context, config interface{}) (*srvenv.SrvEnv, error) {
 		}
 		dbFromEnv, err := database.NewFromEnv(ctx, dbConfigProvider.DatabaseConfig())
 		if err != nil {
-			return nil, fmt.Errorf("unable to connect to database: %v", err)
+			return nil, fmt.Errorf("unable to connect to database: %w", err)
 		}
 		db = dbFromEnv
 		serverEnvOpts = append(serverEnvOpts, srvenv.WithDatabase(db))
@@ -76,7 +77,7 @@ func Setup(ctx context.Context, config interface{}) (*srvenv.SrvEnv, error) {
 
 		provideFn, err := ProvideNotifierFor(notifyConfigProvider, db)
 		if err != nil {
-			return nil, fmt.Errorf("unable create predictor provide function: %v", err)
+			return nil, fmt.Errorf("unable create predictor provide function: %w", err)
 		}
 		notifierProvideFn = provideFn
 		serverEnvOpts = append(serverEnvOpts, srvenv.WithNotifier(notifierProvideFn))
@@ -95,7 +96,7 @@ func Setup(ctx context.Context, config interface{}) (*srvenv.SrvEnv, error) {
 		}
 		provideFn, err := ProvidePredictorFor(cfg, outlierConfigProvider.OutlierConfig())
 		if err != nil {
-			return nil, fmt.Errorf("unable create predictor provide function: %v", err)
+			return nil, fmt.Errorf("unable create predictor provide function: %w", err)
 		}
 		predictorProvideFn = provideFn
 		serverEnvOpts = append(serverEnvOpts, srvenv.WithPredictor(predictorProvideFn))
@@ -105,7 +106,7 @@ func Setup(ctx context.Context, config interface{}) (*srvenv.SrvEnv, error) {
 		logger.Info("Configuring db")
 		provideFn, err := ProvideOutlierFor(outlierConfigProvider, predictorProvideFn, db)
 		if err != nil {
-			return nil, fmt.Errorf("unable create predictor provide function: %v", err)
+			return nil, fmt.Errorf("unable create predictor provide function: %w", err)
 		}
 		outlierProvideFn = provideFn
 		serverEnvOpts = append(serverEnvOpts, srvenv.WithOutlier(outlierProvideFn))
@@ -116,7 +117,7 @@ func Setup(ctx context.Context, config interface{}) (*srvenv.SrvEnv, error) {
 			logger.Info("Configuring db")
 			provideFn, err := ProvideScrapperFor(scrapeConfigProvider)
 			if err != nil {
-				return nil, fmt.Errorf("unable create predictor provide function: %v", err)
+				return nil, fmt.Errorf("unable create predictor provide function: %w", err)
 			}
 			scrapperProvideFn = provideFn
 			serverEnvOpts = append(serverEnvOpts, srvenv.WithScrapper(scrapperProvideFn))
@@ -172,14 +173,14 @@ func ProvideOutlierFor(
 			providePredictFn,
 			notifier,
 			shutdownCh,
-			dispatcher.WithRebuildDbTime(cfg.RebuildDBTime),
+			dispatcher.WithRebuildDBTime(cfg.RebuildDBTime),
 			dispatcher.WithAllowAppendData(cfg.AllowAppendData),
 			dispatcher.WithAllowAppendOutlier(cfg.AllowAppendOutlier),
 			dispatcher.WithMaxItemsStored(cfg.MaxItemsStored),
 			dispatcher.WithMaxStorageTime(cfg.MaxStorageTime),
 			dispatcher.WithSkipItems(cfg.SkipItems),
-			dispatcher.WithDbFlushSize(cfg.DbFlushSize),
-			dispatcher.WithDbFlushTime(cfg.DbFlushTime),
+			dispatcher.WithDBFlushSize(cfg.DBFlushSize),
+			dispatcher.WithDBFlushTime(cfg.DBFlushTime),
 		)
 	}, nil
 }
@@ -193,7 +194,7 @@ func ProvidePredictorFor(cfg *predictor.Config, outlierCfg *dispatcher.Config) (
 		}
 		distFunc, err := lof.DistanceFuncFor(cfgLof.MetricFuncType)
 		if err != nil {
-			return nil, fmt.Errorf("unable provide distance function: %v", err)
+			return nil, fmt.Errorf("unable provide distance function: %w", err)
 		}
 		return func() (predictor.Predictor, error) {
 			l, err := lof.New(
@@ -205,7 +206,7 @@ func ProvidePredictorFor(cfg *predictor.Config, outlierCfg *dispatcher.Config) (
 				lof.WithAlg(cfgLof.AlgType),
 			)
 			if err != nil {
-				return nil, fmt.Errorf("unable create lof instance: %v", err)
+				return nil, fmt.Errorf("unable create lof instance: %w", err)
 			}
 			return l, nil
 		}, nil

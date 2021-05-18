@@ -2,13 +2,14 @@ package gbkd
 
 import (
 	"context"
-	"sod/internal/predictor"
-	"sod/internal/predictor/knn/avlnode"
-	"sod/pkg/container/avltree"
-	"sod/pkg/container/kdtree"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/go-sod/sod/internal/predictor"
+	"github.com/go-sod/sod/internal/predictor/knn/avlnode"
+	"github.com/go-sod/sod/pkg/container/avltree"
+	"github.com/go-sod/sod/pkg/container/kdtree"
 )
 
 func WithMaxItems(n int) Option {
@@ -129,13 +130,13 @@ func (b *gbkd) Append(data ...predictor.DataPoint) {
 }
 
 func (b *gbkd) KNN(vec predictor.Point, n int) ([]predictor.Point, error) {
-	var kdVectors []predictor.Point
 	b.mtx.RLock()
 	items, err := b.gbTree.tree().KNN(vec, n)
 	if err != nil {
 		return nil, err
 	}
 	b.mtx.RUnlock()
+	kdVectors := make([]predictor.Point, 0, len(items))
 	for i := range items {
 		kdVectors = append(kdVectors, items[i].(predictor.Point))
 	}

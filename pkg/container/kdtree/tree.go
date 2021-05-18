@@ -19,8 +19,9 @@ package kdtree
 import (
 	"fmt"
 	"math"
-	"sod/pkg/container/pqueue"
 	"sort"
+
+	"github.com/go-sod/sod/pkg/container/pqueue"
 )
 
 type Point interface {

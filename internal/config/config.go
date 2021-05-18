@@ -1,14 +1,14 @@
 package sod
 
 import (
-	"sod/internal/alert"
-	"sod/internal/collect"
-	"sod/internal/database"
-	"sod/internal/dispatcher"
-	"sod/internal/predict"
-	"sod/internal/predictor"
-	"sod/internal/scrape"
-	"sod/internal/setup"
+	"github.com/go-sod/sod/internal/alert"
+	"github.com/go-sod/sod/internal/collect"
+	"github.com/go-sod/sod/internal/database"
+	"github.com/go-sod/sod/internal/dispatcher"
+	"github.com/go-sod/sod/internal/predict"
+	"github.com/go-sod/sod/internal/predictor"
+	"github.com/go-sod/sod/internal/scrape"
+	"github.com/go-sod/sod/internal/setup"
 )
 
 var (

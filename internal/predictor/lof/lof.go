@@ -3,8 +3,9 @@ package lof
 import (
 	"fmt"
 	"math"
-	"sod/internal/predictor"
 	"time"
+
+	"github.com/go-sod/sod/internal/predictor"
 )
 
 var _ predictor.Predictor = (*lof)(nil)
@@ -72,12 +73,12 @@ func New(opts ...Option) (*lof, error) {
 	}
 	distFunc, err := DistanceFuncFor(lof.opts.distanceFuncType)
 	if err != nil {
-		return nil, fmt.Errorf("unable creating lof instance, %v", err)
+		return nil, fmt.Errorf("unable creating lof instance, %w", err)
 	}
 	lof.distFunc = distFunc
 	alg, err := NNFor(lof.opts.algType, lof.opts.maxItemsStored, lof.opts.maxStorageTime, distFunc)
 	if err != nil {
-		return nil, fmt.Errorf("unable creating lof instance, %v", err)
+		return nil, fmt.Errorf("unable creating lof instance, %w", err)
 	}
 	lof.alg = alg
 	return lof, nil
@@ -111,7 +112,7 @@ func (l *lof) Predict(vec predictor.Point) (*predictor.Conclusion, error) {
 	}
 	result, err := l.predict(vec)
 	if err != nil {
-		return nil, fmt.Errorf("unable to predict %v, %v", vec, err)
+		return nil, fmt.Errorf("unable to predict %v, %w", vec, err)
 	}
 	return result, nil
 }
@@ -124,19 +125,19 @@ func (l *lof) Lof(vec predictor.Point) (float64, error) {
 	var lrdSum, avgLrd float64
 	nn, err := l.alg.KNN(vec, l.kNum)
 	if err != nil {
-		return 0.0, fmt.Errorf("unable compute KNN: %v", err)
+		return 0.0, fmt.Errorf("unable compute KNN: %w", err)
 	}
 	for _, y := range nn {
 		lrd, err := l.lrd(y)
 		if err != nil {
-			return 0.0, fmt.Errorf("unable compute lrd: %v", err)
+			return 0.0, fmt.Errorf("unable compute lrd: %w", err)
 		}
 		lrdSum += lrd
 	}
 	avgLrd = lrdSum / float64(l.kNum)
 	lrd, err := l.lrd(vec)
 	if err != nil {
-		return 0.0, fmt.Errorf("unable compute lrd: %v", err)
+		return 0.0, fmt.Errorf("unable compute lrd: %w", err)
 	}
 	return avgLrd / lrd, nil
 }
@@ -155,7 +156,7 @@ func (l *lof) predict(data predictor.Point) (*predictor.Conclusion, error) {
 	}
 	lof, err := l.Lof(data)
 	if err != nil {
-		return nil, fmt.Errorf("unable compute lof: %v", err)
+		return nil, fmt.Errorf("unable compute lof: %w", err)
 	}
 	conclusion := &predictor.Conclusion{Outlier: false}
 	if lof > LOF {
@@ -174,7 +175,7 @@ func (l *lof) validateKNum() error {
 func (l *lof) kDistance(in predictor.Point) (float64, error) {
 	vectors, err := l.alg.KNN(in, 3)
 	if err != nil {
-		return 0.0, fmt.Errorf("unable compute KNN: %v", err)
+		return 0.0, fmt.Errorf("unable compute KNN: %w", err)
 	}
 	return l.distFunc(in.Points(), vectors[0].Points())
 }
@@ -182,7 +183,7 @@ func (l *lof) kDistance(in predictor.Point) (float64, error) {
 func (l *lof) reachabilityDist(vec, vec1 predictor.Point) (float64, error) {
 	kDistance, err := l.kDistance(vec)
 	if err != nil {
-		return 0.0, fmt.Errorf("unable compute kDistance: %v", err)
+		return 0.0, fmt.Errorf("unable compute kDistance: %w", err)
 	}
 	distance, err := l.distFunc(vec.Points(), vec1.Points())
 	if err != nil {
@@ -195,12 +196,12 @@ func (l *lof) lrd(vec predictor.Point) (float64, error) {
 	var rSum float64
 	nn, err := l.alg.KNN(vec, l.kNum)
 	if err != nil {
-		return 0.0, fmt.Errorf("unable to compute KNN: %v", err)
+		return 0.0, fmt.Errorf("unable to compute KNN: %w", err)
 	}
 	for _, vec1 := range nn {
 		rDistance, err := l.reachabilityDist(vec, vec1)
 		if err != nil {
-			return 0.0, fmt.Errorf("unable to compute reachabilityDist: %v", err)
+			return 0.0, fmt.Errorf("unable to compute reachabilityDist: %w", err)
 		}
 		rSum += rDistance
 	}

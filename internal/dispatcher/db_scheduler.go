@@ -3,22 +3,23 @@ package dispatcher
 import (
 	"context"
 	"fmt"
-	"sod/internal/logging"
-	"sod/internal/metric/model"
 	"sort"
 	"time"
+
+	"github.com/go-sod/sod/internal/logging"
+	"github.com/go-sod/sod/internal/metric/model"
 )
 
 // Scheduler options
 type dbSchedulerConfig struct {
 	maxItemsStored int
 	maxStorageTime time.Duration
-	rebuildDbTime  time.Duration
+	rebuildDBTime  time.Duration
 	deps           pullDependencies
 }
 
 // return *dbScheduler with dbSchedulerConfig options
-func newDbScheduler(config dbSchedulerConfig) *dbScheduler {
+func newDBScheduler(config dbSchedulerConfig) *dbScheduler {
 	return &dbScheduler{opts: config}
 }
 
@@ -36,13 +37,12 @@ func (s *dbScheduler) processOutdatedMetrics(entityID string) error {
 		// only processed and metrics with a creation date later than specified in the settings
 		return metric.Status == model.StatusProcessed && time.Since(metric.CreatedAt) > s.opts.maxStorageTime
 	})
-
 	if err != nil {
-		return fmt.Errorf("unable find metrics by entity %s: %v", entityID, err)
+		return fmt.Errorf("unable find metrics by entity %s: %w", entityID, err)
 	}
 
 	if err := s.opts.deps.deleteMetricsFn(context.Background(), metrics); err != nil {
-		return fmt.Errorf("unable delete resizable metrics entity %s: %v", entityID, err)
+		return fmt.Errorf("unable delete resizable metrics entity %s: %w", entityID, err)
 	}
 	return nil
 }
@@ -54,9 +54,8 @@ func (s *dbScheduler) processOverSizeMetrics(entityID string) error {
 	metrics, err := s.opts.deps.fetchMetricsByEntity(entityID, func(metric model.Metric) bool {
 		return metric.Status == model.StatusProcessed // only the processed values
 	})
-
 	if err != nil {
-		return fmt.Errorf("unable find metrics by entity %s: %v", entityID, err)
+		return fmt.Errorf("unable find metrics by entity %s: %w", entityID, err)
 	}
 
 	// Sort of a metric. This can be a costly operation for large values.
@@ -66,7 +65,7 @@ func (s *dbScheduler) processOverSizeMetrics(entityID string) error {
 
 	// Deleting a slice from the first n sorted metrics
 	if err := s.opts.deps.deleteMetricsFn(context.Background(), metrics[:len(metrics)-s.opts.maxItemsStored]); err != nil {
-		return fmt.Errorf("unable delete resizable metrics entity %s: %v", entityID, err)
+		return fmt.Errorf("unable delete resizable metrics entity %s: %w", entityID, err)
 	}
 	return nil
 }
@@ -76,11 +75,11 @@ func (s *dbScheduler) processOverSizeMetrics(entityID string) error {
 func (s *dbScheduler) rebuildOutdated() error {
 	keys, err := s.opts.deps.fetchKeys()
 	if err != nil {
-		return fmt.Errorf("unable to fetch metric keys: %v", err)
+		return fmt.Errorf("unable to fetch metric keys: %w", err)
 	}
 	for i := range keys {
 		if err := s.processOutdatedMetrics(keys[i]); err != nil {
-			return fmt.Errorf("unable process metrics: %v", err)
+			return fmt.Errorf("unable process metrics: %w", err)
 		}
 	}
 	return nil
@@ -91,19 +90,19 @@ func (s *dbScheduler) rebuildOutdated() error {
 func (s *dbScheduler) rebuildSize() error {
 	keys, err := s.opts.deps.fetchKeys()
 	if err != nil {
-		return fmt.Errorf("unable fetch keys: %v", err)
+		return fmt.Errorf("unable fetch keys: %w", err)
 	}
 	for i := range keys {
 		// getting the number of metrics for the entity
 		length, err := s.opts.deps.countByEntity(keys[i])
 		if err != nil {
-			return fmt.Errorf("unable count by entity %s: %v", keys[i], err)
+			return fmt.Errorf("unable count by entity %s: %w", keys[i], err)
 		}
 		// If the number of elements in the entity is greater than the one specified in the configuration,
-		//t hen run the processOverSizeMetrics
+		// then run the processOverSizeMetrics
 		if length > s.opts.maxItemsStored {
 			if err := s.processOverSizeMetrics(keys[i]); err != nil {
-				return fmt.Errorf("unable process metrics: %v", err)
+				return fmt.Errorf("unable process metrics: %w", err)
 			}
 		}
 	}
@@ -115,11 +114,11 @@ func (s *dbScheduler) rebuildSize() error {
 func (s *dbScheduler) schedule(ctx context.Context) {
 	logger := logging.FromContext(ctx)
 	// determining the time of data verification
-	if s.opts.rebuildDbTime == 0 {
-		s.opts.rebuildDbTime = 5 * time.Second
+	if s.opts.rebuildDBTime == 0 {
+		s.opts.rebuildDBTime = 5 * time.Second
 	}
 
-	ticker := time.NewTicker(s.opts.rebuildDbTime)
+	ticker := time.NewTicker(s.opts.rebuildDBTime)
 	defer ticker.Stop()
 
 	for {

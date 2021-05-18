@@ -5,7 +5,7 @@ import (
 	"strconv"
 )
 
-func СomputeVectorHash(vec []float64) [32]byte {
+func HashVector(vec []float64) [32]byte {
 	buffer := GetBytesBuffer()
 	defer PutBytesBuffer(buffer)
 	defer buffer.Reset()

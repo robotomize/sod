@@ -2,11 +2,11 @@ package logging
 
 import (
 	"context"
+
 	"go.uber.org/zap"
 )
 
-type LoggerKey struct {
-}
+type LoggerKey struct{}
 
 var fallbackLogger *zap.SugaredLogger
 

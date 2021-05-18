@@ -2,11 +2,12 @@ package srvenv
 
 import (
 	"context"
-	"sod/internal/alert"
-	"sod/internal/database"
-	"sod/internal/dispatcher"
-	"sod/internal/predictor"
-	"sod/internal/scrape"
+
+	"github.com/go-sod/sod/internal/alert"
+	"github.com/go-sod/sod/internal/database"
+	"github.com/go-sod/sod/internal/dispatcher"
+	"github.com/go-sod/sod/internal/predictor"
+	"github.com/go-sod/sod/internal/scrape"
 )
 
 type Option func(*SrvEnv) *SrvEnv

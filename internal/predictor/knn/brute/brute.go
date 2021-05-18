@@ -3,12 +3,13 @@ package brute
 import (
 	"context"
 	"fmt"
-	"sod/internal/predictor"
-	"sod/internal/predictor/knn/avlnode"
-	"sod/pkg/container/avltree"
-	"sod/pkg/container/pqueue"
 	"sync"
 	"time"
+
+	"github.com/go-sod/sod/internal/predictor"
+	"github.com/go-sod/sod/internal/predictor/knn/avlnode"
+	"github.com/go-sod/sod/pkg/container/avltree"
+	"github.com/go-sod/sod/pkg/container/pqueue"
 )
 
 func WithMaxItems(n int) Option {

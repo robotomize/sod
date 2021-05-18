@@ -5,13 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"sod/internal/dispatcher"
-	"sod/internal/geom"
-	"sod/internal/httputil"
-	"sod/internal/logging"
-	"sod/internal/metric/model"
 	"sort"
 	"time"
+
+	"github.com/go-sod/sod/internal/dispatcher"
+	"github.com/go-sod/sod/internal/geom"
+	"github.com/go-sod/sod/internal/httputil"
+	"github.com/go-sod/sod/internal/logging"
+	"github.com/go-sod/sod/internal/metric/model"
 )
 
 const maxBodyBytes = 64 * 1024 * 1024

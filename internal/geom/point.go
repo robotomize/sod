@@ -30,8 +30,9 @@ func (v Point) Points() []float64 {
 }
 
 func (v Point) Copy() Point {
-	var v1 = make(Point, len(v))
+	v1 := make(Point, len(v))
 	copy(v1, v)
+
 	return v1
 }
 
@@ -63,7 +64,7 @@ func (v Point) Apply(applyFn func(float64) float64) {
 }
 
 func (v Point) Map(applyFn func(float64) float64) Point {
-	var v1 = make(Point, len(v))
+	v1 := make(Point, len(v))
 	for i := range v {
 		v1[i] = applyFn(v[i])
 	}
@@ -113,7 +114,7 @@ func (v Point) Max() float64 {
 }
 
 func (v Point) Min() float64 {
-	var min = math.MaxFloat64
+	min := math.MaxFloat64
 	for i := range v {
 		if v[i] < min {
 			min = v[i]

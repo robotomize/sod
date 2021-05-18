@@ -3,8 +3,9 @@ package database
 import (
 	"context"
 	"fmt"
+
+	"github.com/go-sod/sod/internal/logging"
 	bolt "go.etcd.io/bbolt"
-	"sod/internal/logging"
 )
 
 type DB struct {
@@ -17,7 +18,7 @@ func NewFromEnv(ctx context.Context, config *Config) (*DB, error) {
 
 	db, err := bolt.Open(config.FileName, 0600, nil)
 	if err != nil {
-		return nil, fmt.Errorf("creating connection Db: %v", err)
+		return nil, fmt.Errorf("creating connection Db: %w", err)
 	}
 
 	return &DB{DB: db}, nil
@@ -28,7 +29,7 @@ func (db *DB) Close(ctx context.Context) error {
 	logger.Infof("closing DB connection")
 
 	if err := db.DB.Close(); err != nil {
-		return fmt.Errorf("error close Db connection: %v", err)
+		return fmt.Errorf("error close Db connection: %w", err)
 	}
 
 	return nil

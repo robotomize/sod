@@ -10,15 +10,16 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	alertDb "sod/internal/alert/database"
-	"sod/internal/alert/model"
-	"sod/internal/database"
-	"sod/internal/httputil"
-	"sod/internal/logging"
-	metricModel "sod/internal/metric/model"
-	"sod/pkg/container/rworker"
 	"sync"
 	"time"
+
+	alertDb "github.com/go-sod/sod/internal/alert/database"
+	"github.com/go-sod/sod/internal/alert/model"
+	"github.com/go-sod/sod/internal/database"
+	"github.com/go-sod/sod/internal/httputil"
+	"github.com/go-sod/sod/internal/logging"
+	metricModel "github.com/go-sod/sod/internal/metric/model"
+	"github.com/go-sod/sod/pkg/container/rworker"
 )
 
 type ProvideFn = func(chan<- error) (Manager, error)
@@ -66,7 +67,7 @@ type request struct {
 
 func New(db *database.DB, shutdownCh chan<- error, opts ...Option) (*manager, error) {
 	m := &manager{
-		alertDb:    alertDb.New(db),
+		alertDB:    alertDb.New(db),
 		shutdownCh: shutdownCh,
 		targets:    Targets{},
 		alerts:     map[string][]metricModel.Metric{},
@@ -78,7 +79,7 @@ func New(db *database.DB, shutdownCh chan<- error, opts ...Option) (*manager, er
 		if _, ok := m.clients[target.EntityID]; !ok {
 			client, err := httputil.NewClientFromConfig(target.HTTPConfig, true)
 			if err != nil {
-				return nil, fmt.Errorf("unable crate client for entity %s: %v", target.EntityID, err)
+				return nil, fmt.Errorf("unable crate client for entity %s: %w", target.EntityID, err)
 			}
 			m.clients[target.EntityID] = client
 		}
@@ -99,7 +100,7 @@ type Manager interface {
 type manager struct {
 	mtx        sync.RWMutex
 	opts       Options
-	alertDb    *alertDb.DB
+	alertDB    *alertDb.DB
 	shutdownCh chan<- error
 	targets    Targets
 	clients    map[string]*http.Client
@@ -110,9 +111,9 @@ type manager struct {
 func (m *manager) Run(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	m.cancel = cancel
-	go m.notifier(ctx, m.alertDb.Store, m.alertDb.Delete)
-	if err := m.bulkLoad(ctx, m.alertDb.Delete, m.alertDb.FindAll); err != nil {
-		return fmt.Errorf("can not start alert manager: %v", err)
+	go m.notifier(ctx, m.alertDB.Store, m.alertDB.Delete)
+	if err := m.bulkLoad(ctx, m.alertDB.Delete, m.alertDB.FindAll); err != nil {
+		return fmt.Errorf("can not start alert manager: %w", err)
 	}
 	return nil
 }
@@ -145,7 +146,7 @@ func (m *manager) bulkLoad(ctx context.Context, deleteFn deleteFn, fetchFn fetch
 	for i := range alerts {
 		m.Notify(alerts[i].Metrics...)
 		if err := deleteFn(context.Background(), alerts[i]); err != nil {
-			return fmt.Errorf("unable delete alert on bulkLoad: %v", err)
+			return fmt.Errorf("unable delete alert on bulkLoad: %w", err)
 		}
 	}
 	return nil
@@ -159,7 +160,7 @@ func (m *manager) shutdown(fn storeFn) error {
 	for entityID, metrics := range m.alerts {
 		alert := model.NewAlert(entityID, metrics)
 		if err := fn(context.Background(), alert); err != nil {
-			return fmt.Errorf("alert shutdown: unable store alert: %v", err)
+			return fmt.Errorf("alert shutdown: unable store alert: %w", err)
 		}
 	}
 	return nil
@@ -195,7 +196,7 @@ func (m *manager) notifier(ctx context.Context, storeFn storeFn, deleteFn delete
 				rworker.Job(&wg, func() error {
 					alertModel := model.NewAlert(metrics[0].EntityID, metrics)
 					if err := storeFn(context.Background(), alertModel); err != nil {
-						return fmt.Errorf("unable store alert: %v", err)
+						return fmt.Errorf("unable store alert: %w", err)
 					}
 					if err := m.do(context.Background(), target, func() request {
 						outliers := make([]data, len(metrics))
@@ -212,10 +213,10 @@ func (m *manager) notifier(ctx context.Context, storeFn storeFn, deleteFn delete
 							Data:     outliers,
 						}
 					}); err != nil {
-						return fmt.Errorf("alert do request error: %v", err)
+						return fmt.Errorf("alert do request error: %w", err)
 					}
 					if err := deleteFn(context.Background(), alertModel); err != nil {
-						return fmt.Errorf("unable store alert: %v", err)
+						return fmt.Errorf("unable store alert: %w", err)
 					}
 					m.mtx.Lock()
 					m.alerts[target.EntityID] = m.alerts[target.EntityID][:0]
@@ -241,7 +242,7 @@ func (m *manager) do(ctx context.Context, target Target, fn makeRequestFn) error
 	}
 
 	b := make([]byte, len(body))
-	link, err := url.Parse(target.Url)
+	link, err := url.Parse(target.URL)
 	if err != nil {
 		return fmt.Errorf("url parsing error: %w", err)
 	}

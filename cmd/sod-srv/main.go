@@ -5,16 +5,29 @@ import (
 	"fmt"
 	"net/http"
 	_ "net/http/pprof"
-	"sod/internal/collect"
-	"sod/internal/config"
-	"sod/internal/logging"
-	"sod/internal/predict"
-	"sod/internal/server"
-	"sod/internal/setup"
-	"sod/internal/shutdown"
+	"os"
+	"time"
+
+	"github.com/go-sod/sod/internal/collect"
+	sod "github.com/go-sod/sod/internal/config"
+	"github.com/go-sod/sod/internal/logging"
+	"github.com/go-sod/sod/internal/predict"
+	"github.com/go-sod/sod/internal/server"
+	"github.com/go-sod/sod/internal/setup"
+	"github.com/go-sod/sod/internal/shutdown"
+)
+
+var (
+	version     string
+	buildTime   = time.Now().String()
+	projectName = "SOD server"
+	graffiti    = " _____  ___________ \n/  ___||  _  |  _  \\\n\\ `--. | | | | | | |\n `--. \\| | | | | | |\n/\\__/ /\\ \\_/ / |/ / \n\\____/  \\___/|___/  \n\n"
 )
 
 func main() {
+	_, _ = fmt.Fprint(os.Stdout, graffiti)
+	_, _ = fmt.Fprintf(os.Stdout, "%s: %s, %s\n", projectName, buildTime, version)
+
 	ctx, done := shutdown.New()
 	logger := logging.FromContext(ctx)
 	if err := run(ctx, done); err != nil {

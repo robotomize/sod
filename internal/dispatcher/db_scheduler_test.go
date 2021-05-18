@@ -3,14 +3,16 @@ package dispatcher
 import (
 	"context"
 	"errors"
-	"sod/internal/geom"
-	metricDb "sod/internal/metric/database"
-	"sod/internal/metric/model"
 	"testing"
 	"time"
+
+	"github.com/go-sod/sod/internal/geom"
+	metricDb "github.com/go-sod/sod/internal/metric/database"
+	"github.com/go-sod/sod/internal/metric/model"
 )
 
 func TestRebuildSize(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name              string
 		maxItemsStored    int
@@ -142,6 +144,7 @@ func TestRebuildSize(t *testing.T) {
 }
 
 func TestRebuildOutdated(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name              string
 		maxItemsStored    int
@@ -254,6 +257,7 @@ func TestRebuildOutdated(t *testing.T) {
 }
 
 func TestProcessOverSizeMetrics(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name              string
 		maxItemsStored    int
@@ -350,6 +354,7 @@ func TestProcessOverSizeMetrics(t *testing.T) {
 
 // @TODO add logger test
 func TestSchedule(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name               string
 		optsMaxItemsStored int
@@ -377,7 +382,7 @@ func TestSchedule(t *testing.T) {
 			scheduler := &dbScheduler{opts: dbSchedulerConfig{
 				maxItemsStored: test.optsMaxItemsStored,
 				maxStorageTime: test.optsMaxStorageTime,
-				rebuildDbTime:  100 * time.Millisecond,
+				rebuildDBTime:  100 * time.Millisecond,
 				deps: pullDependencies{
 					fetchKeys: func() ([]string, error) {
 						return []string{"test-entity"}, nil
@@ -393,7 +398,7 @@ func TestSchedule(t *testing.T) {
 					},
 				},
 			}}
-			ctx, cancel := context.WithTimeout(context.Background(), scheduler.opts.rebuildDbTime*2)
+			ctx, cancel := context.WithTimeout(context.Background(), scheduler.opts.rebuildDBTime*2)
 			defer cancel()
 
 			scheduler.schedule(ctx)

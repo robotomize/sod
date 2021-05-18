@@ -2,6 +2,7 @@ package integration
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -32,13 +33,18 @@ type Client struct {
 	client *http.Client
 }
 
-func (c *Client) Collect(req Request) (*http.Response, error) {
-	b, err := json.Marshal(&req)
+func (c *Client) Collect(r Request) (*http.Response, error) {
+	b, err := json.Marshal(&r)
 	if err != nil {
 		return nil, fmt.Errorf("unable marshal collect request: %w", err)
 	}
 	reader := bytes.NewReader(b)
-	resp, err := c.client.Post("/collect", "application/json", reader)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, "/collect", reader)
+	if err != nil {
+		return nil, fmt.Errorf("create new request: %w", err)
+	}
+
+	resp, err := c.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("error with sending request: %w", err)
 	}
@@ -46,24 +52,39 @@ func (c *Client) Collect(req Request) (*http.Response, error) {
 	return resp, nil
 }
 
-func (c *Client) Predict(req Request) (*http.Response, error) {
-	b, err := json.Marshal(&req)
+func (c *Client) Predict(r Request) (*http.Response, error) {
+	b, err := json.Marshal(&r)
 	if err != nil {
 		return nil, fmt.Errorf("unable marshal collect request: %w", err)
 	}
+
 	reader := bytes.NewReader(b)
-	resp, err := c.client.Post("/predict", "application/json", reader)
+
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, "/predict", reader)
+	if err != nil {
+		return nil, fmt.Errorf("create new request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("error with sending request: %w", err)
 	}
+
 	defer resp.Body.Close()
 	return resp, nil
 }
 
 func (c *Client) Health() (*http.Response, error) {
-	resp, err := c.client.Get("/health")
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "/health", nil)
 	if err != nil {
-		return nil, fmt.Errorf("error with sending request: %w", err)
+		return nil, fmt.Errorf("create new request: %w", err)
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("sending request: %w", err)
 	}
 	return resp, nil
 }

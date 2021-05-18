@@ -1,9 +1,10 @@
 package model
 
 import (
-	"github.com/google/uuid"
-	"sod/internal/metric/model"
 	"time"
+
+	"github.com/go-sod/sod/internal/metric/model"
+	"github.com/google/uuid"
 )
 
 func NewAlert(entityID string, metrics []model.Metric) Alert {

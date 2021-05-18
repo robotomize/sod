@@ -4,15 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"golang.org/x/sync/errgroup"
 	"net/http"
-	"sod/internal/dispatcher"
-	"sod/internal/geom"
-	"sod/internal/httputil"
-	"sod/internal/logging"
-	"sod/internal/predictor"
 	"sync"
 	"time"
+
+	"github.com/go-sod/sod/internal/dispatcher"
+	"github.com/go-sod/sod/internal/geom"
+	"github.com/go-sod/sod/internal/httputil"
+	"github.com/go-sod/sod/internal/logging"
+	"github.com/go-sod/sod/internal/predictor"
+	"golang.org/x/sync/errgroup"
 )
 
 const maxBodyBytes = 64 * 1024 * 1024
@@ -69,7 +70,7 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method != "POST" {
 		w.WriteHeader(http.StatusMethodNotAllowed)
-		logger.Debug(fmt.Sprintf(`{"error": "method %v is not allowed"}`, r.Method))
+		logger.Debugf(`{"error": "method %v is not allowed"}`, r.Method)
 		_, _ = fmt.Fprintf(w, `{"error": "method %v is not allowed"}`, r.Method)
 		return
 	}
@@ -91,7 +92,7 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(req.Data) > h.cfg.MaxDataItemsLen {
-		httputil.RespBadRequest(
+		httputil.RespBadRequestErrorf(
 			ctx,
 			w,
 			`{"error": "data items is too large, max allowed len is %d"}`,
@@ -116,7 +117,7 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 			result, err := h.outlier.Predict(req.EntityID, point)
 			if err != nil {
-				return fmt.Errorf("predict error: %v", err)
+				return fmt.Errorf("predict error: %w", err)
 			}
 			mtx.Lock()
 			respData = append(respData, struct {
@@ -130,7 +131,7 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	if err := errGrp.Wait(); err != nil {
-		httputil.RespInternalError(ctx, w, "predict processing error: %v", err)
+		httputil.RespInternalErrorf(ctx, w, "predict processing error: %v", err)
 		return
 	}
 	resp := response{
@@ -139,7 +140,7 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	resp.Data = respData
 	bytes, err := json.Marshal(resp)
 	if err != nil {
-		httputil.RespInternalError(ctx, w, "failed to encode output json %v", err)
+		httputil.RespInternalErrorf(ctx, w, "failed to encode output json %v", err)
 		return
 	}
 	w.WriteHeader(http.StatusOK)

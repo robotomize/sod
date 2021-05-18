@@ -4,15 +4,16 @@ import (
 	"context"
 	"fmt"
 	"runtime"
-	"sod/internal/alert"
-	"sod/internal/database"
-	"sod/internal/logging"
-	metricDb "sod/internal/metric/database"
-	"sod/internal/metric/model"
-	"sod/internal/predictor"
-	"sod/pkg/container/iqueue"
 	"sync"
 	"time"
+
+	"github.com/go-sod/sod/internal/alert"
+	"github.com/go-sod/sod/internal/database"
+	"github.com/go-sod/sod/internal/logging"
+	metricDb "github.com/go-sod/sod/internal/metric/database"
+	"github.com/go-sod/sod/internal/metric/model"
+	"github.com/go-sod/sod/internal/predictor"
+	"github.com/go-sod/sod/pkg/container/iqueue"
 )
 
 // Contract for returning the Manager instance
@@ -83,27 +84,27 @@ type Options struct {
 	allowAppendOutlier bool
 	dbFlushTime        time.Duration
 	dbFlushSize        int
-	rebuildDbTime      time.Duration
+	rebuildDBTime      time.Duration
 	deps               pullDependencies
 }
 
 type Option func(*manager)
 
-func WithDbFlushTime(t time.Duration) Option {
+func WithDBFlushTime(t time.Duration) Option {
 	return func(o *manager) {
 		o.opts.dbFlushTime = t
 	}
 }
 
-func WithDbFlushSize(n int) Option {
+func WithDBFlushSize(n int) Option {
 	return func(o *manager) {
 		o.opts.dbFlushSize = n
 	}
 }
 
-func WithRebuildDbTime(t time.Duration) Option {
+func WithRebuildDBTime(t time.Duration) Option {
 	return func(o *manager) {
-		o.opts.rebuildDbTime = t
+		o.opts.rebuildDBTime = t
 	}
 }
 
@@ -154,7 +155,7 @@ func New(
 	}
 
 	d := &manager{
-		metricDb:           metricDb.New(db),
+		metricDB:           metricDb.New(db),
 		collectCh:          make(chan model.Metric, 1),
 		shutDownCh:         shutdownCh,
 		predictorProvideFn: providePredictorFn,
@@ -170,30 +171,30 @@ func New(
 
 	// structure containing functions for getting and adding metrics
 	d.opts.deps = pullDependencies{
-		fetchMetrics:         d.metricDb.FindAll,
-		fetchMetricsByEntity: d.metricDb.FindByEntity,
-		deleteMetric:         d.metricDb.Delete,
-		deleteMetricsFn:      d.metricDb.DeleteMany,
-		appendMetricsFn:      d.metricDb.AppendMany,
-		fetchKeys:            d.metricDb.Keys,
-		countByEntity:        d.metricDb.CountByEntity,
+		fetchMetrics:         d.metricDB.FindAll,
+		fetchMetricsByEntity: d.metricDB.FindByEntity,
+		deleteMetric:         d.metricDB.Delete,
+		deleteMetricsFn:      d.metricDB.DeleteMany,
+		appendMetricsFn:      d.metricDB.AppendMany,
+		fetchKeys:            d.metricDB.Keys,
+		countByEntity:        d.metricDB.CountByEntity,
 	}
 
-	// Creating a new instance of newDbScheduler.
-	d.dbScheduler = newDbScheduler(dbSchedulerConfig{
+	// Creating a new instance of newDBScheduler.
+	d.dbScheduler = newDBScheduler(dbSchedulerConfig{
 		deps:           d.opts.deps,
 		maxItemsStored: d.opts.maxItemsStored,
 		maxStorageTime: d.opts.maxStorageTime,
-		rebuildDbTime:  d.opts.rebuildDbTime,
+		rebuildDBTime:  d.opts.rebuildDBTime,
 	})
 
 	// Creates a new instance of dbTxExecutor
-	d.dbTxExecutor = newDbTxExecutor(
+	d.dbTxExecutor = newDBTxExecutor(
 		db,
 		dbTxExecutorOptions{
-			deps:        d.opts.deps,
-			dbFlushTime: d.opts.dbFlushTime,
-			dbFlushSize: d.opts.dbFlushSize,
+			deps:      d.opts.deps,
+			flushTime: d.opts.dbFlushTime,
+			flushSize: d.opts.dbFlushSize,
 		},
 		shutdownCh,
 	)
@@ -209,7 +210,7 @@ type manager struct {
 	// Manager options
 	opts Options
 	//  Main metric storage
-	metricDb *metricDb.DB
+	metricDB *metricDb.DB
 	//  The notification manager
 	notifier alert.Manager
 	// The transaction manager in the store
@@ -250,7 +251,7 @@ func (d *manager) Run(ctx context.Context) error {
 
 	// Loading data from storage to memory
 	if err := d.bulkLoad(ctx); err != nil {
-		return fmt.Errorf("can not start dispatcher manager: %v", err)
+		return fmt.Errorf("can not start dispatcher manager: %w", err)
 	}
 	// Launching the notification service
 	if err := d.notifier.Run(c); err != nil {
@@ -278,7 +279,7 @@ func (d *manager) Predict(entityID string, data predictor.DataPoint) (*predictor
 		newPredictor, err := d.predictorProvideFn()
 		if err != nil {
 			d.mtx.Unlock()
-			return nil, fmt.Errorf("can not create predictor instance: %v", err)
+			return nil, fmt.Errorf("can not create predictor instance: %w", err)
 		}
 		predictorFn = newPredictor
 		d.predictors[entityID] = newPredictor
@@ -314,7 +315,7 @@ func (d *manager) bulkLoad(ctx context.Context) error {
 	// getting all metrics that are in the storage
 	data, err := d.opts.deps.fetchMetrics(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("error fetching all metrics: %v", err)
+		return fmt.Errorf("error fetching all metrics: %w", err)
 	}
 
 	processedMetrics := map[string][]predictor.DataPoint{}
@@ -336,7 +337,7 @@ func (d *manager) bulkLoad(ctx context.Context) error {
 		if !ok {
 			newPredictorFn, err := d.predictorProvideFn()
 			if err != nil {
-				return fmt.Errorf("can not create predictor instance: %v", err)
+				return fmt.Errorf("can not create predictor instance: %w", err)
 			}
 			d.predictors[k] = newPredictorFn
 			loadPredictor = newPredictorFn
@@ -362,7 +363,7 @@ func (d *manager) process(ctx context.Context, metric model.Metric) error {
 		newPredictor, err := d.predictorProvideFn()
 		if err != nil {
 			d.mtx.Unlock()
-			return fmt.Errorf("can not create predictor instance: %v", err)
+			return fmt.Errorf("can not create predictor instance: %w", err)
 		}
 		entityPredictor = newPredictor
 		d.mtx.Lock()
@@ -372,21 +373,21 @@ func (d *manager) process(ctx context.Context, metric model.Metric) error {
 
 	if entityPredictor.Len() < d.opts.skipItems || entityPredictor.Len() < 3 {
 		metric.Status = model.StatusProcessed
-		d.dbTxExecutor.append(ctx, metric)
+		d.dbTxExecutor.write(ctx, metric)
 		entityPredictor.Append(&metric)
 		return nil
 	}
 
 	metric.Status = model.StatusNew
 
-	d.dbTxExecutor.append(ctx, metric)
+	d.dbTxExecutor.write(ctx, metric)
 
 	result, predictErr := entityPredictor.Predict(metric.Point())
 	if predictErr != nil {
 		if err := d.opts.deps.deleteMetric(context.Background(), metric); err != nil {
-			return fmt.Errorf("unable predict: %v", fmt.Errorf("metric delete error %s: %v", metric.EntityID, err))
+			return fmt.Errorf("unable predict: %w", err)
 		}
-		return fmt.Errorf("unable predict: %v", predictErr)
+		return fmt.Errorf("unable predict: %w", predictErr)
 	}
 
 	metric.Outlier = result.Outlier
@@ -407,7 +408,7 @@ func (d *manager) process(ctx context.Context, metric model.Metric) error {
 
 	if !d.opts.allowAppendData {
 		if err := d.opts.deps.deleteMetric(ctx, metric); err != nil {
-			return fmt.Errorf("delete transaction error: %v", err)
+			return fmt.Errorf("delete transaction error: %w", err)
 		}
 		return nil
 	}
@@ -418,7 +419,7 @@ func (d *manager) process(ctx context.Context, metric model.Metric) error {
 
 	metric.Status = model.StatusProcessed
 
-	d.dbTxExecutor.append(ctx, metric)
+	d.dbTxExecutor.write(ctx, metric)
 
 	return nil
 }
@@ -445,7 +446,7 @@ func (d *manager) shutdown(ctx context.Context, q *iqueue.Queue) error {
 		}
 
 		if err := d.process(ctx, front.Value.(model.Metric)); err != nil {
-			return fmt.Errorf("dispatcher shutdown: unable processed data: %v", err)
+			return fmt.Errorf("dispatcher shutdown: unable processed data: %w", err)
 		}
 
 		q.Queue().Remove(front)

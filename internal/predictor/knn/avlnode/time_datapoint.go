@@ -1,9 +1,10 @@
 package avlnode
 
 import (
-	"sod/internal/predictor"
-	"sod/pkg/container/avltree"
 	"time"
+
+	"github.com/go-sod/sod/internal/predictor"
+	"github.com/go-sod/sod/pkg/container/avltree"
 )
 
 type TimeNode struct {

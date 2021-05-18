@@ -1,10 +1,11 @@
 package model
 
 import (
-	"github.com/google/uuid"
-	"sod/internal/geom"
-	"sod/internal/predictor"
 	"time"
+
+	"github.com/go-sod/sod/internal/geom"
+	"github.com/go-sod/sod/internal/predictor"
+	"github.com/google/uuid"
 )
 
 type Status uint8

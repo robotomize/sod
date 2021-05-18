@@ -86,7 +86,6 @@ func (n *node) invert() *node {
 		} else {
 			n.left = tmp.invert()
 		}
-
 	}
 	return n
 }

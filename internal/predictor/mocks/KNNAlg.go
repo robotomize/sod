@@ -3,8 +3,7 @@
 package mocks
 
 import (
-	predictor "sod/internal/predictor"
-
+	predictor "github.com/go-sod/sod/internal/predictor"
 	mock "github.com/stretchr/testify/mock"
 )
 
