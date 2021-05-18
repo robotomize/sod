@@ -3,14 +3,16 @@ package dispatcher
 import (
 	"context"
 	"errors"
-	"sod/internal/geom"
-	"sod/internal/metric/model"
-	"sync/atomic"
+	"sync"
 	"testing"
 	"time"
+
+	"github.com/go-sod/sod/internal/geom"
+	"github.com/go-sod/sod/internal/metric/model"
 )
 
 func TestDbxExecutorFlusher(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name           string
 		shutdownCh     chan error
@@ -37,17 +39,22 @@ func TestDbxExecutorFlusher(t *testing.T) {
 	}
 
 	for _, test := range tests {
+		test := test
+
 		t.Run(test.name, func(t *testing.T) {
-			length := 0
-			bit := int64(0)
+			t.Parallel()
+			appendedCnt := 0
+			mtx := sync.RWMutex{}
 			txExecutor := &dbTxExecutor{
 				opts: dbTxExecutorOptions{
-					dbFlushTime: 1 * time.Second,
+					flushTime: 500 * time.Millisecond,
 					deps: pullDependencies{
 						appendMetricsFn: func(ctx context.Context, metrics []model.Metric) error {
-							if atomic.LoadInt64(&bit) == 0 {
-								length = len(metrics)
-								atomic.StoreInt64(&bit, 1)
+							mtx.Lock()
+							defer mtx.Unlock()
+
+							if len(metrics) > 0 {
+								appendedCnt = len(metrics)
 							}
 
 							return nil
@@ -62,18 +69,20 @@ func TestDbxExecutorFlusher(t *testing.T) {
 			txExecutor.buf = test.batch
 			go txExecutor.flusher(ctx)
 
-			time.Sleep(test.waitingTime * 2)
-			cancel()
+			time.Sleep(test.waitingTime)
 
-			if length != test.expectedLen {
+			cancel()
+			mtx.RLock()
+			if appendedCnt != test.expectedLen {
 				t.Errorf(
 					"calling the flusher method, the length of the inserted data got: %v, expected: %v",
-					length,
+					appendedCnt,
 					test.expectedLen,
 				)
 			}
+			mtx.RUnlock()
 
-			if len(txExecutor.buf) != test.expectedBufLen {
+			if txExecutor.len() != test.expectedBufLen {
 				t.Errorf(
 					"calling the shutdown method, the length of buffer got: %v, expected: %v",
 					len(txExecutor.buf),
@@ -85,6 +94,7 @@ func TestDbxExecutorFlusher(t *testing.T) {
 }
 
 func TestDbTxExecutorAppend(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name           string
 		items          []model.Metric
@@ -120,20 +130,28 @@ func TestDbTxExecutorAppend(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			txExecutor := &dbTxExecutor{opts: dbTxExecutorOptions{deps: pullDependencies{
-				appendMetricsFn: func(ctx context.Context, metrics []model.Metric) error {
-					return nil
-				},
-			}}}
+		test := test
 
-			for _, item := range test.items {
-				txExecutor.append(context.Background(), item)
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			txExecutor := &dbTxExecutor{
+				opts: dbTxExecutorOptions{
+					flushSize: 10,
+					deps: pullDependencies{
+						appendMetricsFn: func(ctx context.Context, metrics []model.Metric) error {
+							return nil
+						},
+					},
+				},
 			}
 
-			if len(txExecutor.buf) != test.expectedLen {
+			for _, item := range test.items {
+				txExecutor.write(context.Background(), item)
+			}
+
+			if txExecutor.len() != test.expectedLen {
 				t.Errorf(
-					"calling the append method, the length of the inserted data got: %v, expected: %v",
+					"calling the write method, the length of the inserted data got: %v, expected: %v",
 					len(txExecutor.buf),
 					test.expectedLen,
 				)
@@ -142,7 +160,8 @@ func TestDbTxExecutorAppend(t *testing.T) {
 	}
 }
 
-func TestDbTxExecutorBulkAppend(t *testing.T) {
+func TestDbTxExecutorFlush(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name           string
 		shutdownCh     chan error
@@ -174,30 +193,34 @@ func TestDbTxExecutorBulkAppend(t *testing.T) {
 	}
 
 	for _, test := range tests {
+		test := test
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			length := 0
 			txExecutor := &dbTxExecutor{
-				buf: test.buf,
-				opts: dbTxExecutorOptions{deps: pullDependencies{
-					appendMetricsFn: func(ctx context.Context, metrics []model.Metric) error {
-						length = len(metrics)
-						return nil
+				buf: test.buf[:],
+				opts: dbTxExecutorOptions{
+					deps: pullDependencies{
+						appendMetricsFn: func(ctx context.Context, metrics []model.Metric) error {
+							length = len(metrics)
+							return nil
+						},
 					},
-				}}}
+				},
+			}
 
-			txExecutor.bulkAppend(context.Background())
+			txExecutor.flush(context.Background())
 
 			if length != test.expectedLen {
 				t.Errorf(
-					"calling the bulkAppend method, the length of the inserted data got: %v, expected: %v",
+					"calling the flush method, the length of the inserted data got: %v, expected: %v",
 					length,
 					test.expectedLen,
 				)
 			}
-
 			if len(txExecutor.buf) != test.expectedBufLen {
 				t.Errorf(
-					"calling the bulkAppend method, the length of buffer got: %v, expected: %v",
+					"calling the flush method, the length of buffer got: %v, expected: %v",
 					len(txExecutor.buf),
 					test.expectedBufLen,
 				)
@@ -207,6 +230,7 @@ func TestDbTxExecutorBulkAppend(t *testing.T) {
 }
 
 func TestDbTxExecutorShutdown(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name           string
 		shutdownCh     chan error
@@ -238,7 +262,9 @@ func TestDbTxExecutorShutdown(t *testing.T) {
 	}
 
 	for _, test := range tests {
+		test := test
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			length := 0
 			txExecutor := &dbTxExecutor{opts: dbTxExecutorOptions{deps: pullDependencies{
 				appendMetricsFn: func(ctx context.Context, metrics []model.Metric) error {

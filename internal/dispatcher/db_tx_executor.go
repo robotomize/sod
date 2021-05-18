@@ -3,23 +3,24 @@ package dispatcher
 import (
 	"context"
 	"fmt"
-	"sod/internal/database"
-	"sod/internal/logging"
-	metricDb "sod/internal/metric/database"
-	"sod/internal/metric/model"
 	"sync"
 	"time"
+
+	"github.com/go-sod/sod/internal/database"
+	"github.com/go-sod/sod/internal/logging"
+	metricDb "github.com/go-sod/sod/internal/metric/database"
+	"github.com/go-sod/sod/internal/metric/model"
 )
 
-func newDbTxExecutor(db *database.DB, opts dbTxExecutorOptions, shutdownCh chan<- error) *dbTxExecutor {
-	return &dbTxExecutor{metricDb: metricDb.New(db), opts: opts, shutdownCh: shutdownCh}
+func newDBTxExecutor(db *database.DB, opts dbTxExecutorOptions, shutdownCh chan<- error) *dbTxExecutor {
+	return &dbTxExecutor{metricDB: metricDb.New(db), opts: opts, shutdownCh: shutdownCh}
 }
 
 // dbTxExecutorOptions Returns the structure with configuration options
 type dbTxExecutorOptions struct {
-	dbFlushSize int
-	dbFlushTime time.Duration
-	deps        pullDependencies
+	flushSize int
+	flushTime time.Duration
+	deps      pullDependencies
 }
 
 // A structure that represents the database transaction execution service.
@@ -28,7 +29,7 @@ type dbTxExecutor struct {
 	mtx sync.RWMutex
 
 	opts     dbTxExecutorOptions
-	metricDb *metricDb.DB
+	metricDB *metricDb.DB
 	//  Buffer that accumulates metric data for adding
 	buf        []model.Metric
 	shutdownCh chan<- error
@@ -38,7 +39,7 @@ type dbTxExecutor struct {
 func (tx *dbTxExecutor) shutdown() error {
 	tx.mtx.Lock()
 	if err := tx.opts.deps.appendMetricsFn(context.Background(), tx.buf); err != nil {
-		return fmt.Errorf("txExecutor: append many operation failed: %v", err)
+		return fmt.Errorf("txExecutor: write many operation failed: %w", err)
 	}
 	tx.buf = tx.buf[:0]
 	tx.mtx.Unlock()
@@ -46,24 +47,24 @@ func (tx *dbTxExecutor) shutdown() error {
 }
 
 // This is the main method for adding data. It adds data to the buffer.
-// If the buffer is full, it calls the bulkAppend method
-func (tx *dbTxExecutor) append(ctx context.Context, data model.Metric) {
+// If the buffer is full, it calls the flush method
+func (tx *dbTxExecutor) write(ctx context.Context, data model.Metric) {
 	tx.mtx.Lock()
-	if tx.buf == nil {
-		tx.buf = []model.Metric{}
+	if len(tx.buf) == 0 {
+		tx.buf = make([]model.Metric, 0)
 	}
 
 	tx.buf = append(tx.buf, data)
 	bufLen := len(tx.buf)
 	tx.mtx.Unlock()
 
-	if bufLen >= tx.opts.dbFlushSize {
-		go tx.bulkAppend(ctx)
+	if bufLen >= tx.opts.flushSize {
+		go tx.flush(ctx)
 	}
 }
 
 // Bulk adds data to persistent storage and clears the buffer
-func (tx *dbTxExecutor) bulkAppend(ctx context.Context) {
+func (tx *dbTxExecutor) flush(ctx context.Context) {
 	logger := logging.FromContext(ctx)
 
 	tx.mtx.Lock()
@@ -73,8 +74,15 @@ func (tx *dbTxExecutor) bulkAppend(ctx context.Context) {
 	tx.mtx.Unlock()
 	// call appendMetricsFn
 	if err := tx.opts.deps.appendMetricsFn(context.Background(), tmpBuf); err != nil {
-		logger.Errorf("txExecutor: append many operation failed: %v", err)
+		logger.Errorf("txExecutor: flush operation failed: %v", err)
 	}
+}
+
+func (tx *dbTxExecutor) len() int {
+	tx.mtx.RLock()
+	defer tx.mtx.RUnlock()
+
+	return len(tx.buf)
 }
 
 // Every n seconds, data from the buffer must be inserted into the database
@@ -82,11 +90,11 @@ func (tx *dbTxExecutor) flusher(ctx context.Context) {
 	defer func() {
 		tx.shutdownCh <- tx.shutdown()
 	}()
-	ticker := time.NewTicker(tx.opts.dbFlushTime)
+	ticker := time.NewTicker(tx.opts.flushTime)
 	for {
 		select {
 		case <-ticker.C:
-			tx.bulkAppend(ctx)
+			tx.flush(ctx)
 		case <-ctx.Done():
 			return
 		}
