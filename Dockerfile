@@ -14,15 +14,20 @@ RUN go build \
   -trimpath \
   -ldflags "-s -w -extldflags '-static'" \
   -installsuffix cgo \
-  -tags netgo \
-  -o /bin/service \
-  ./cmd/sod
+  -o /bin/sod \
+  ./cmd/sod-srv
 
-RUN strip /bin/service
-RUN upx -q -9 /bin/service
+RUN strip /bin/sod
+RUN upx -q -9 /bin/sod
 
+
+RUN mkdir /data
 
 FROM scratch
-COPY --from=builder /bin/service /bin/service
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=builder /bin/sod /bin/sod
+COPY --from=builder /data /data
 
-ENTRYPOINT ["/bin/service"]
+VOLUME /data
+
+ENTRYPOINT ["/bin/sod"]
