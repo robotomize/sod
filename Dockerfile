@@ -10,9 +10,12 @@ ENV GO111MODULE=on \
 WORKDIR /src
 COPY . .
 
+ENV BUILD_INFO_PACKAGE=github.com/go-sod/sod/internal/buildinfo
+ENV BUILD_NAME=sod-srv
+
 RUN go build \
   -trimpath \
-  -ldflags "-s -w -extldflags '-static'" \
+  -ldflags "-s -w -X $BUILD_INFO_PACKAGE.BuildTag=$(git describe --tags --abbrev=0) -X $BUILD_INFO_PACKAGE.Time=$(date -u '+%Y-%m-%d-%H:%M') -X $BUILD_INFO_PACKAGE.Name=$BUILD_NAME -extldflags '-static'" \
   -installsuffix cgo \
   -o /bin/sod \
   ./cmd/sod-srv
