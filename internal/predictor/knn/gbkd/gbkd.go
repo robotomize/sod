@@ -8,8 +8,8 @@ import (
 
 	"github.com/go-sod/sod/internal/predictor"
 	"github.com/go-sod/sod/internal/predictor/knn/avlnode"
-	"github.com/go-sod/sod/pkg/container/avltree"
-	"github.com/go-sod/sod/pkg/container/kdtree"
+	"github.com/go-sod/sod/pkg/avltree"
+	"github.com/go-sod/sod/pkg/kdtree"
 )
 
 func WithMaxItems(n int) Option {

@@ -19,7 +19,7 @@ import (
 	"github.com/go-sod/sod/internal/httputil"
 	"github.com/go-sod/sod/internal/logging"
 	metricModel "github.com/go-sod/sod/internal/metric/model"
-	"github.com/go-sod/sod/pkg/container/rworker"
+	"github.com/go-sod/sod/pkg/rworker"
 )
 
 type ProvideFn = func(chan<- error) (Manager, error)

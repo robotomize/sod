@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/go-sod/sod/internal/predictor"
-	"github.com/go-sod/sod/pkg/container/avltree"
+	"github.com/go-sod/sod/pkg/avltree"
 )
 
 type TimeNode struct {

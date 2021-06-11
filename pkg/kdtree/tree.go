@@ -21,7 +21,7 @@ import (
 	"math"
 	"sort"
 
-	"github.com/go-sod/sod/pkg/container/pqueue"
+	"github.com/go-sod/sod/pkg/pqueue"
 )
 
 type Point interface {

@@ -18,7 +18,7 @@ import (
 	"github.com/go-sod/sod/internal/geom"
 	"github.com/go-sod/sod/internal/logging"
 	"github.com/go-sod/sod/internal/metric/model"
-	"github.com/go-sod/sod/pkg/container/rworker"
+	"github.com/go-sod/sod/pkg/rworker"
 )
 
 type response struct {

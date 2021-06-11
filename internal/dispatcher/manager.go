@@ -13,7 +13,7 @@ import (
 	metricDb "github.com/go-sod/sod/internal/metric/database"
 	"github.com/go-sod/sod/internal/metric/model"
 	"github.com/go-sod/sod/internal/predictor"
-	"github.com/go-sod/sod/pkg/container/iqueue"
+	"github.com/go-sod/sod/pkg/iqueue"
 )
 
 // Contract for returning the Manager instance

@@ -8,8 +8,8 @@ import (
 
 	"github.com/go-sod/sod/internal/predictor"
 	"github.com/go-sod/sod/internal/predictor/knn/avlnode"
-	"github.com/go-sod/sod/pkg/container/avltree"
-	"github.com/go-sod/sod/pkg/container/pqueue"
+	"github.com/go-sod/sod/pkg/avltree"
+	"github.com/go-sod/sod/pkg/pqueue"
 )
 
 func WithMaxItems(n int) Option {
